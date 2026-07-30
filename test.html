@@ -406,6 +406,177 @@
     0%, 100% { opacity: 1; }
     50%      { opacity: 0.4; }
   }
+
+  /* ── 设置模态框 ── */
+  .settings-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.15);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .settings-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .settings-dialog {
+    background: #fff;
+    border-radius: 12px;
+    padding: 28px 32px 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    max-width: 440px;
+    width: 90%;
+  }
+  .settings-dialog h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 20px;
+  }
+  .settings-field {
+    margin-bottom: 16px;
+  }
+  .settings-field label {
+    display: block;
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 5px;
+    font-weight: 500;
+  }
+  .settings-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e5e0d8;
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 13px;
+    color: #374151;
+    background: #fdfcfa;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .settings-input:focus {
+    border-color: #3b82f6;
+  }
+  .settings-input::placeholder {
+    color: #d1d5db;
+  }
+
+  /* ── AI 分析结果卡 ── */
+  .ai-result-card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    padding: 20px 24px;
+    margin-top: 16px;
+    transition: opacity 0.3s ease;
+  }
+  .ai-result-card.loading {
+    opacity: 0.7;
+  }
+  .ai-result-card h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ai-section {
+    margin-bottom: 14px;
+  }
+  .ai-section:last-child {
+    margin-bottom: 0;
+  }
+  .ai-section .ai-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  .ai-section .ai-text {
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.65;
+  }
+  .ai-keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .ai-keyword-tag {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 500;
+  }
+  .ai-action-item {
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.6;
+    padding: 3px 0 3px 16px;
+    position: relative;
+  }
+  .ai-action-item::before {
+    content: '·';
+    position: absolute;
+    left: 4px;
+    color: #3b82f6;
+    font-weight: bold;
+  }
+  .ai-streaming-text {
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* ── 加载旋转器 ── */
+  .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e5e0d8;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── AI 按钮 ── */
+  .btn-ai {
+    background-color: #f5f3ff;
+    color: #7c3aed;
+    border: none;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color 0.15s ease;
+  }
+  .btn-ai:hover {
+    background-color: #ede9fe;
+  }
+  .btn-ai:disabled {
+    background-color: #f3f0eb;
+    color: #d1d5db;
+    cursor: not-allowed;
+  }
 </style>
 </head>
 <body class="h-full flex flex-col">
@@ -424,7 +595,7 @@
     <button class="btn btn-ghost px-4 py-2" type="button">
       思考框架
     </button>
-    <button class="btn btn-ghost px-3 py-2" type="button">
+    <button class="btn btn-ghost px-3 py-2" type="button" id="btnSettings">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -537,10 +708,46 @@
 
         </div>
 
+        <!-- AI 分析结果区 -->
+        <div class="ai-result-card hidden" id="aiResultCard">
+          <h4>
+            <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+            </svg>
+            AI 分析结果
+            <span class="spinner hidden" id="aiSpinner"></span>
+          </h4>
+          <!-- 流式文本（加载中显示） -->
+          <div class="ai-streaming-text hidden" id="aiStreaming"></div>
+          <!-- 结构化结果（完成后显示） -->
+          <div class="hidden" id="aiStructured">
+            <div class="ai-section">
+              <div class="ai-label">💡 核心观点</div>
+              <div class="ai-text" id="aiCoreIdeas"></div>
+            </div>
+            <div class="ai-section">
+              <div class="ai-label">🏷️ 关键词</div>
+              <div class="ai-keywords" id="aiKeywords"></div>
+            </div>
+            <div class="ai-section">
+              <div class="ai-label">😊 情绪倾向</div>
+              <div class="ai-text" id="aiSentiment"></div>
+            </div>
+            <div class="ai-section">
+              <div class="ai-label">✅ 行动项</div>
+              <div id="aiActionItems"></div>
+            </div>
+          </div>
+          <div class="flex items-center justify-end mt-4 pt-3 border-t border-gray-100">
+            <button class="btn-ai" id="btnSaveAi" type="button">保存到日记</button>
+          </div>
+        </div>
+
         <!-- 底部操作区 -->
         <div class="flex items-center justify-between mt-5 px-1">
           <div class="text-xs text-ink-400" id="saveStatus"><span class="draft-dot hidden" id="draftDot"></span><span id="saveStatusText"></span></div>
           <div class="flex items-center gap-2">
+            <button class="btn-ai" id="btnAiAnalyze" type="button">✨ AI 提炼要点</button>
             <button class="btn btn-ghost px-4 py-2 text-sm" id="btnDraft" type="button">
               存为草稿
             </button>
@@ -560,6 +767,33 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- 设置面板 -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-dialog">
+    <h3>⚙️ 设置</h3>
+    <div class="settings-field">
+      <label for="settingsApiKey">DeepSeek API Key</label>
+      <input type="password" id="settingsApiKey" class="settings-input" placeholder="sk-…">
+    </div>
+    <div class="settings-field">
+      <label for="settingsApiUrl">API 地址</label>
+      <input type="text" id="settingsApiUrl" class="settings-input" placeholder="https://api.deepseek.com">
+    </div>
+    <div class="settings-field">
+      <label for="settingsModel">模型</label>
+      <select id="settingsModel" class="category-select" style="width:100%">
+        <option value="deepseek-v4-flash">deepseek-v4-flash</option>
+        <option value="deepseek-chat">deepseek-chat</option>
+        <option value="deepseek-reasoner">deepseek-reasoner</option>
+      </select>
+    </div>
+    <div class="flex items-center justify-end gap-2 mt-5">
+      <button class="btn btn-ghost px-4 py-2" id="btnSettingsCancel">取消</button>
+      <button class="btn btn-primary px-5 py-2" id="btnSettingsSave">保存设置</button>
+    </div>
+  </div>
+</div>
+
 <!-- 删除确认对话框 -->
 <div class="confirm-overlay" id="confirmOverlay">
   <div class="confirm-dialog">
@@ -578,7 +812,14 @@
 
 const STORAGE_KEY = 'diary_entries';
 const DRAFT_KEY   = 'diary_draft';
+const SETTINGS_KEY = 'diary_settings';
 const AUTO_DRAFT_DELAY = 10000;  // 10 秒无操作后自动保存草稿
+
+const DEFAULT_SETTINGS = {
+  apiKey: '',
+  apiUrl: 'https://api.deepseek.com',
+  model:  'deepseek-v4-flash',
+};
 
 const CATEGORIES = ['工作思考', '生活感悟', '学习笔记', '情绪记录'];
 
@@ -634,7 +875,9 @@ const SEED_DATA = [
 /* ── 状态 ── */
 let entries = [];
 let currentId = null;   // null = 新建模式
-let draftTimer = null;  // 自动草稿计时器
+let draftTimer = null;    // 自动草稿计时器
+let isAiLoading = false;  // AI 请求进行中
+let aiAbortController = null;  // 用于取消 AI 请求
 
 /* ── 筛选状态 ── */
 let filterCategory  = '';
@@ -659,6 +902,20 @@ const $filterCat      = document.getElementById('filterCategory');
 const $filterFrom     = document.getElementById('filterDateFrom');
 const $filterTo       = document.getElementById('filterDateTo');
 const $filterCount    = document.getElementById('filterCount');
+const $aiCard       = document.getElementById('aiResultCard');
+const $aiStreaming  = document.getElementById('aiStreaming');
+const $aiStructured = document.getElementById('aiStructured');
+const $aiCoreIdeas  = document.getElementById('aiCoreIdeas');
+const $aiKeywords   = document.getElementById('aiKeywords');
+const $aiSentiment  = document.getElementById('aiSentiment');
+const $aiActionItems = document.getElementById('aiActionItems');
+const $aiSpinner    = document.getElementById('aiSpinner');
+const $btnAi        = document.getElementById('btnAiAnalyze');
+const $btnSaveAi    = document.getElementById('btnSaveAi');
+const $settingsOverlay = document.getElementById('settingsOverlay');
+const $settingsApiKey  = document.getElementById('settingsApiKey');
+const $settingsApiUrl  = document.getElementById('settingsApiUrl');
+const $settingsModel   = document.getElementById('settingsModel');
 
 let pendingDeleteId = null;
 
@@ -896,6 +1153,7 @@ function newEntry() {
   $saveStatusText.textContent = '';
   clearDraft();
   hideDraftBanner();
+  hideAiCard();
   updateTitlePlaceholder();
   renderList();
 }
@@ -912,6 +1170,16 @@ function loadIntoEditor(entry) {
     $saveStatusText.textContent = '最后保存：' + formatDateTime(entry.updatedAt);
   } else {
     $saveStatusText.textContent = '';
+  }
+
+  // 恢复已有 AI 分析结果
+  hideAiCard();
+  if (entry.summary && (entry.summary.coreIdeas || entry.summary.keywords?.length || entry.summary.sentiment)) {
+    displayAiResult(entry.summary);
+    $aiStreaming.classList.add('hidden');
+    $aiStructured.classList.remove('hidden');
+    $aiCard.classList.remove('hidden');
+    $btnSaveAi.disabled = false;
   }
 }
 
@@ -1032,6 +1300,239 @@ function formatDateTime(isoStr) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   设置面板
+   ═══════════════════════════════════════════════════════════════ */
+
+function loadSettings() {
+  const raw = localStorage.getItem(SETTINGS_KEY);
+  if (raw) {
+    try { return JSON.parse(raw); } catch (e) { /* fall through */ }
+  }
+  return { ...DEFAULT_SETTINGS };
+}
+
+function saveSettings(settings) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function openSettings() {
+  const s = loadSettings();
+  $settingsApiKey.value = s.apiKey || '';
+  $settingsApiUrl.value = s.apiUrl || DEFAULT_SETTINGS.apiUrl;
+  $settingsModel.value  = s.model  || DEFAULT_SETTINGS.model;
+  $settingsOverlay.classList.add('show');
+}
+
+function closeSettings() {
+  $settingsOverlay.classList.remove('show');
+}
+
+function applySettings() {
+  const settings = {
+    apiKey: $settingsApiKey.value.trim(),
+    apiUrl: $settingsApiUrl.value.trim() || DEFAULT_SETTINGS.apiUrl,
+    model:  $settingsModel.value,
+  };
+  saveSettings(settings);
+  closeSettings();
+  showToast('设置已保存');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AI 提炼
+   ═══════════════════════════════════════════════════════════════ */
+
+function buildAiPrompt(title, content) {
+  return `请分析以下日记内容，返回严格的 JSON 格式（不要包含 \`\`\`json 代码块标记，只返回纯 JSON 对象）：
+
+{
+  "coreIdeas": "用一两句话概括这篇日记的核心观点或主题",
+  "keywords": ["关键词1", "关键词2", "关键词3"],
+  "sentiment": "情绪倾向（如：平静偏正面、焦虑、兴奋、感伤等），并附一句话说明",
+  "actionItems": ["基于日记内容可执行的行动项，如无则返回空数组"]
+}
+
+日记标题：${title || '无标题'}
+
+日记正文：
+${content}`;
+}
+
+function parseAiResult(text) {
+  // 尝试从文本中提取 JSON 对象
+  try {
+    // 先尝试直接解析
+    return JSON.parse(text);
+  } catch (e1) {
+    // 尝试提取 {} 包裹的内容
+    const m = text.match(/\{[\s\S]*\}/);
+    if (m) {
+      try { return JSON.parse(m[0]); } catch (e2) { /* fall through */ }
+    }
+  }
+  // 解析失败，返回原始文本作为核心观点
+  return {
+    coreIdeas: text.trim() || 'AI 未返回有效分析结果',
+    keywords: [],
+    sentiment: '',
+    actionItems: [],
+  };
+}
+
+function displayAiResult(data) {
+  $aiCoreIdeas.textContent = data.coreIdeas || '';
+  $aiKeywords.innerHTML = (data.keywords || []).map(k => `<span class="ai-keyword-tag">${escHtml(k)}</span>`).join('');
+  $aiSentiment.textContent = data.sentiment || '';
+  $aiActionItems.innerHTML = (data.actionItems || []).map(a => `<div class="ai-action-item">${escHtml(a)}</div>`).join('');
+}
+
+async function runAiAnalysis() {
+  if (isAiLoading) return;
+
+  const settings = loadSettings();
+  if (!settings.apiKey) {
+    showToast('请先在设置中配置 DeepSeek API Key');
+    openSettings();
+    return;
+  }
+
+  const title   = $title.value.trim();
+  const content = $content.value;
+  if (!title && !content) {
+    showToast('请先写一些内容再分析');
+    return;
+  }
+
+  // ── 进入加载态 ──
+  isAiLoading = true;
+  $btnAi.disabled = true;
+  $btnAi.textContent = '⏳ 分析中…';
+  $aiCard.classList.remove('hidden');
+  $aiStreaming.classList.remove('hidden');
+  $aiStreaming.textContent = '';
+  $aiStructured.classList.add('hidden');
+  $aiSpinner.classList.remove('hidden');
+  $btnSaveAi.disabled = true;
+
+  aiAbortController = new AbortController();
+
+  try {
+    const response = await fetch(`${settings.apiUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${settings.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        messages: [
+          { role: 'system', content: '你是一个专业的日记分析助手。请严格按照要求的 JSON 格式返回分析结果，不要添加任何额外的解释或 markdown 格式。' },
+          { role: 'user', content: buildAiPrompt(title, content) },
+        ],
+        stream: true,
+        temperature: 0.3,
+      }),
+      signal: aiAbortController.signal,
+    });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      let errMsg = `API 请求失败 (${response.status})`;
+      if (response.status === 401) errMsg = 'API Key 无效，请检查设置';
+      else if (response.status === 404) errMsg = 'API 地址不正确，请检查设置';
+      throw new Error(errMsg + (errText ? `: ${errText}` : ''));
+    }
+
+    // ── 流式读取 ──
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data:')) continue;
+        const payload = trimmed.slice(5).trim();
+        if (payload === '[DONE]') break;
+
+        try {
+          const json = JSON.parse(payload);
+          const delta = json.choices?.[0]?.delta?.content;
+          if (delta) {
+            fullText += delta;
+            $aiStreaming.textContent = fullText;
+          }
+        } catch (e) { /* 跳过无法解析的行 */ }
+      }
+    }
+
+    // ── 解析并显示结构化结果 ──
+    const parsed = parseAiResult(fullText);
+    displayAiResult(parsed);
+    $aiStreaming.classList.add('hidden');
+    $aiStructured.classList.remove('hidden');
+    $btnSaveAi.disabled = false;
+
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      $aiStreaming.textContent = '[请求已取消]';
+    } else {
+      $aiStreaming.textContent = `分析失败：${err.message}`;
+    }
+    $aiStreaming.classList.remove('hidden');
+    $aiStructured.classList.add('hidden');
+  } finally {
+    isAiLoading = false;
+    aiAbortController = null;
+    $btnAi.disabled = false;
+    $btnAi.textContent = '✨ AI 提炼要点';
+    $aiSpinner.classList.add('hidden');
+  }
+}
+
+function hideAiCard() {
+  $aiCard.classList.add('hidden');
+  $aiStreaming.classList.add('hidden');
+  $aiStructured.classList.add('hidden');
+  $btnSaveAi.disabled = true;
+}
+
+function saveAiToDiary() {
+  const coreIdeas = $aiCoreIdeas.textContent.trim();
+  const keywords  = Array.from($aiKeywords.querySelectorAll('.ai-keyword-tag')).map(el => el.textContent.trim());
+  const sentiment = $aiSentiment.textContent.trim();
+  const actionItems = Array.from($aiActionItems.querySelectorAll('.ai-action-item')).map(el => el.textContent.trim());
+
+  if (!currentId) {
+    showToast('请先保存日记，再保存 AI 分析结果');
+    return;
+  }
+
+  const entry = entries.find(e => e.id === currentId);
+  if (!entry) return;
+
+  entry.summary = {
+    aiTitle:      coreIdeas,
+    aiTags:       keywords,
+    aiReflection: `${sentiment}${actionItems.length ? ' | 行动项: ' + actionItems.join('; ') : ''}`,
+    coreIdeas:    coreIdeas,
+    keywords:     keywords,
+    sentiment:    sentiment,
+    actionItems:  actionItems,
+  };
+  saveToStorage();
+  showToast('AI 分析已保存到日记');
+}
+
+/* ═══════════════════════════════════════════════════════════════
    Toast
    ═══════════════════════════════════════════════════════════════ */
 
@@ -1094,6 +1595,18 @@ $overlay.addEventListener('click', function(e) {
 
 // 草稿按钮（当前与保存行为一致）
 document.getElementById('btnDraft').addEventListener('click', saveEntry);
+
+// ── 设置面板事件 ──
+document.getElementById('btnSettings').addEventListener('click', openSettings);
+document.getElementById('btnSettingsSave').addEventListener('click', applySettings);
+document.getElementById('btnSettingsCancel').addEventListener('click', closeSettings);
+$settingsOverlay.addEventListener('click', function(e) {
+  if (e.target === $settingsOverlay) closeSettings();
+});
+
+// ── AI 分析事件 ──
+$btnAi.addEventListener('click', runAiAnalysis);
+$btnSaveAi.addEventListener('click', saveAiToDiary);
 
 // ── 筛选事件 ──
 $filterCat.addEventListener('change', function() {
