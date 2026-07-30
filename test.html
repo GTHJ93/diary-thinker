@@ -676,12 +676,84 @@
     padding: 40px 0;
     font-size: 14px;
   }
+
+  /* ── 移动端适配（<768px） ── */
+  @media (max-width: 767px) {
+
+    /* 导航栏紧凑 */
+    header { padding: 0 12px; }
+    header .text-lg { font-size: 15px; }
+    header span.text-xs { display: none; }
+    .btn { font-size: 12px; padding: 6px 10px; }
+
+    /* 左侧栏变为抽屉 */
+    aside {
+      position: fixed !important;
+      top: 56px !important;
+      left: 0 !important;
+      bottom: 0 !important;
+      width: 300px !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      z-index: 60 !important;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      box-shadow: 2px 0 16px rgba(0,0,0,0.08);
+    }
+    aside.open { transform: translateX(0); }
+
+    /* 侧栏遮罩 */
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      top: 56px;
+      z-index: 55;
+      background: rgba(0,0,0,0.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .sidebar-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* 主区域全宽 */
+    main { width: 100% !important; }
+
+    /* 编辑区减小内边距 */
+    #editorView .max-w-3xl,
+    #frameworkView .max-w-3xl {
+      padding-left: 16px !important;
+      padding-right: 16px !important;
+    }
+    #editorView .p-8 { padding: 20px 16px !important; }
+
+    /* 框架配置区紧凑 */
+    .framework-config { padding: 16px; }
+    .framework-result-card { padding: 16px; }
+
+    /* 底部操作按钮换行 */
+    #editorView .flex.items-center.justify-between.mt-5 {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    #editorView .flex.items-center.gap-2 {
+      flex-wrap: wrap;
+    }
+  }
 </style>
 </head>
 <body class="h-full flex flex-col">
 
 <!-- ════════════════════════ 顶部导航栏 ════════════════════════ -->
 <header class="fixed top-0 inset-x-0 z-50 h-14 bg-white/90 backdrop-blur-sm shadow-nav flex items-center px-6">
+  <!-- 移动端菜单按钮 -->
+  <button class="btn btn-ghost px-2 py-1 mr-1 hidden" id="btnMenu" type="button" style="display:none" aria-label="菜单">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"></path>
+    </svg>
+  </button>
   <div class="flex items-center gap-2 flex-1">
     <span class="text-lg font-semibold tracking-tight text-ink-800">思录</span>
     <span class="text-xs text-ink-400 font-normal mt-0.5">· 安静地记录每一天</span>
@@ -702,6 +774,9 @@
     </button>
   </div>
 </header>
+
+<!-- 侧栏遮罩（移动端） -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
 
 <!-- ════════════════════════ 主体内容区 ════════════════════════ -->
 <div class="flex flex-1 pt-14 h-full">
@@ -913,7 +988,7 @@
           选择时间范围和分类后，点击「生成思考框架」<br>AI 将对筛选范围内的日记进行聚合分析
         </div>
         <div class="md-content hidden" id="fwMdContent"></div>
-        <div class="spinner hidden mt-6" id="fwSpinner" style="display:block;margin:20px auto"></div>
+        <div class="spinner hidden" id="fwSpinner" style="margin:20px auto"></div>
       </div>
 
       <!-- 复制按钮 -->
@@ -952,6 +1027,15 @@
         <option value="deepseek-chat">deepseek-chat</option>
         <option value="deepseek-reasoner">deepseek-reasoner</option>
       </select>
+    </div>
+    <hr style="border:none;border-top:1px solid #f3f0eb;margin:20px 0 16px">
+    <div class="settings-field">
+      <label>数据管理</label>
+      <div class="flex gap-2">
+        <button class="btn btn-ghost px-4 py-2 text-sm flex-1" id="btnExportData" type="button">📤 导出 JSON</button>
+        <button class="btn btn-ghost px-4 py-2 text-sm flex-1" id="btnImportData" type="button">📥 导入 JSON</button>
+      </div>
+      <input type="file" id="importFileInput" accept=".json" style="display:none">
     </div>
     <div class="flex items-center justify-end gap-2 mt-5">
       <button class="btn btn-ghost px-4 py-2" id="btnSettingsCancel">取消</button>
@@ -1360,6 +1444,7 @@ function selectEntry(id) {
   currentId = id;
   loadIntoEditor(entry);
   renderList();
+  closeSidebar(); // 移动端选完日记关闭抽屉
 }
 
 function updateTitlePlaceholder() {
@@ -1568,6 +1653,51 @@ function applySettings() {
   showToast('设置已保存');
 }
 
+/** 导出所有日记为 JSON 文件并触发浏览器下载 */
+function exportData() {
+  const data = JSON.stringify(entries, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `diary-export-${toDateStr(new Date())}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('数据已导出');
+}
+
+/** 从 JSON 文件导入日记数据 */
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!Array.isArray(imported)) throw new Error('格式错误：需要 JSON 数组');
+      // 验证每条记录的基本字段
+      for (const item of imported) {
+        if (!item.id || !item.date || !item.title === undefined) {
+          throw new Error('数据格式不匹配：缺少必要字段 (id/date/title)');
+        }
+      }
+      // 合并：用 id 去重，保留已有数据中更新的
+      const existingMap = new Map(entries.map(e => [e.id, e]));
+      for (const item of imported) {
+        existingMap.set(item.id, item);
+      }
+      entries = Array.from(existingMap.values());
+      saveToStorage();
+      renderList();
+      newEntry();
+      showToast(`已导入 ${imported.length} 条日记`);
+    } catch (err) {
+      showToast('导入失败：' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
 /* ═══════════════════════════════════════════════════════════════
    AI 提炼 — 通用流式调用
    ═══════════════════════════════════════════════════════════════ */
@@ -1589,7 +1719,9 @@ async function callDeepSeekStream(userContent, systemPrompt, onChunk, model) {
   const controller = new AbortController();
   aiAbortController = controller;
 
-  const response = await fetch(`${settings.apiUrl}/chat/completions`, {
+  let response;
+  try {
+    response = await fetch(`${settings.apiUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -1606,6 +1738,11 @@ async function callDeepSeekStream(userContent, systemPrompt, onChunk, model) {
     }),
     signal: controller.signal,
   });
+
+  } catch (e) {
+    if (e.name === 'AbortError') throw e; // 透传取消信号
+    throw new Error('网络请求失败，请检查 API 地址或网络连接');
+  }
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '');
@@ -2011,6 +2148,34 @@ async function copyMarkdown() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   移动端抽屉
+   ═══════════════════════════════════════════════════════════════ */
+
+const $aside         = document.querySelector('aside');
+const $sidebarOverlay = document.getElementById('sidebarOverlay');
+const $btnMenu       = document.getElementById('btnMenu');
+
+/** 在小屏设备显示菜单按钮，大屏隐藏 */
+function updateMenuButton() {
+  if (window.innerWidth < 768) {
+    $btnMenu.style.display = '';
+  } else {
+    $btnMenu.style.display = 'none';
+    closeSidebar();
+  }
+}
+
+function openSidebar() {
+  $aside.classList.add('open');
+  $sidebarOverlay.classList.add('show');
+}
+
+function closeSidebar() {
+  $aside.classList.remove('open');
+  $sidebarOverlay.classList.remove('show');
+}
+
+/* ═══════════════════════════════════════════════════════════════
    Toast
    ═══════════════════════════════════════════════════════════════ */
 
@@ -2106,6 +2271,23 @@ document.querySelectorAll('#timeRangeGroup .time-range-btn').forEach(function(bt
 $fwDateFrom.addEventListener('change', function() { frameworkTimeRange = 'custom'; });
 $fwDateTo.addEventListener('change', function() { frameworkTimeRange = 'custom'; });
 
+// ── 移动端抽屉 ──
+$btnMenu.addEventListener('click', openSidebar);
+$sidebarOverlay.addEventListener('click', closeSidebar);
+window.addEventListener('resize', updateMenuButton);
+
+// ── 数据导出导入 ──
+document.getElementById('btnExportData').addEventListener('click', exportData);
+document.getElementById('btnImportData').addEventListener('click', function() {
+  document.getElementById('importFileInput').click();
+});
+document.getElementById('importFileInput').addEventListener('change', function() {
+  if (this.files && this.files[0]) {
+    importData(this.files[0]);
+    this.value = ''; // 允许重复导入同一文件
+  }
+});
+
 // ── 筛选事件 ──
 $filterCat.addEventListener('change', function() {
   filterCategory = this.value;
@@ -2123,6 +2305,7 @@ $filterTo.addEventListener('change', function() {
 });
 
 /* ── 启动 ── */
+updateMenuButton(); // 移动端按钮显隐
 loadFromStorage();
 renderList();
 
