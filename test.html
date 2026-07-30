@@ -1013,7 +1013,14 @@
   <div class="settings-dialog">
     <h3>⚙️ 设置</h3>
     <div class="settings-field">
-      <label for="settingsApiKey">DeepSeek API Key</label>
+      <label for="settingsVendor">API 厂商</label>
+      <select id="settingsVendor" class="category-select" style="width:100%">
+        <option value="deepseek">DeepSeek</option>
+        <option value="zhipu">智谱GLM</option>
+      </select>
+    </div>
+    <div class="settings-field">
+      <label for="settingsApiKey">API Key</label>
       <input type="password" id="settingsApiKey" class="settings-input" placeholder="sk-…">
     </div>
     <div class="settings-field">
@@ -1022,11 +1029,7 @@
     </div>
     <div class="settings-field">
       <label for="settingsModel">模型</label>
-      <select id="settingsModel" class="category-select" style="width:100%">
-        <option value="deepseek-v4-flash">deepseek-v4-flash</option>
-        <option value="deepseek-chat">deepseek-chat</option>
-        <option value="deepseek-reasoner">deepseek-reasoner</option>
-      </select>
+      <select id="settingsModel" class="category-select" style="width:100%"></select>
     </div>
     <hr style="border:none;border-top:1px solid #f3f0eb;margin:20px 0 16px">
     <div class="settings-field">
@@ -1065,13 +1068,26 @@ const DRAFT_KEY   = 'diary_draft';
 const SETTINGS_KEY = 'diary_settings';
 const AUTO_DRAFT_DELAY = 10000;  // 10 秒无操作后自动保存草稿
 
-const DEFAULT_SETTINGS = {
-  apiKey: '',
-  apiUrl: 'https://api.deepseek.com',
-  model:  'deepseek-v4-flash',
+/** API 厂商配置 */
+const AI_VENDORS = {
+  deepseek: {
+    label:  'DeepSeek',
+    apiUrl: 'https://api.deepseek.com',
+    models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+  },
+  zhipu: {
+    label:  '智谱GLM',
+    apiUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    models: ['glm-4.5-air', 'glm-4-plus'],
+  },
 };
 
-const DEFAULT_MODEL = 'deepseek-v4-flash';
+const DEFAULT_SETTINGS = {
+  vendor: 'deepseek',
+  apiKey: '',
+  apiUrl: AI_VENDORS.deepseek.apiUrl,
+  model:  AI_VENDORS.deepseek.models[0],
+};
 
 const SINGLE_DIARY_SYSTEM_PROMPT = `你是专业的思考整理助手，基于用户的日记内容客观提炼信息，不演绎、不煽情、不额外发挥。
 严格按以下固定结构返回，不要添加多余标题和解释：
@@ -1211,6 +1227,7 @@ const $aiSpinner    = document.getElementById('aiSpinner');
 const $btnAi        = document.getElementById('btnAiAnalyze');
 const $btnSaveAi    = document.getElementById('btnSaveAi');
 const $settingsOverlay = document.getElementById('settingsOverlay');
+const $settingsVendor  = document.getElementById('settingsVendor');
 const $settingsApiKey  = document.getElementById('settingsApiKey');
 const $settingsApiUrl  = document.getElementById('settingsApiUrl');
 const $settingsModel   = document.getElementById('settingsModel');
@@ -1632,11 +1649,29 @@ function saveSettings(settings) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
+/** 填充模型下拉列表 */
+function populateModelOptions(vendor, selectedModel) {
+  const cfg = AI_VENDORS[vendor] || AI_VENDORS.deepseek;
+  $settingsModel.innerHTML = cfg.models.map(m =>
+    `<option value="${m}" ${m === selectedModel ? 'selected' : ''}>${m}</option>`
+  ).join('');
+}
+
+/** 厂商切换：更新地址 + 模型列表 */
+function onVendorChange() {
+  const vendor = $settingsVendor.value;
+  const cfg    = AI_VENDORS[vendor] || AI_VENDORS.deepseek;
+  $settingsApiUrl.value       = cfg.apiUrl;
+  $settingsApiUrl.placeholder = cfg.apiUrl;
+  populateModelOptions(vendor, cfg.models[0]);
+}
+
 function openSettings() {
   const s = loadSettings();
+  $settingsVendor.value = s.vendor || 'deepseek';
   $settingsApiKey.value = s.apiKey || '';
-  $settingsApiUrl.value = s.apiUrl || DEFAULT_SETTINGS.apiUrl;
-  $settingsModel.value  = s.model  || DEFAULT_SETTINGS.model;
+  $settingsApiUrl.value = s.apiUrl || AI_VENDORS[s.vendor || 'deepseek'].apiUrl;
+  populateModelOptions(s.vendor || 'deepseek', s.model);
   $settingsOverlay.classList.add('show');
 }
 
@@ -1645,9 +1680,11 @@ function closeSettings() {
 }
 
 function applySettings() {
+  const vendor = $settingsVendor.value;
   const settings = {
+    vendor: vendor,
     apiKey: $settingsApiKey.value.trim(),
-    apiUrl: $settingsApiUrl.value.trim() || DEFAULT_SETTINGS.apiUrl,
+    apiUrl: $settingsApiUrl.value.trim() || AI_VENDORS[vendor].apiUrl,
     model:  $settingsModel.value,
   };
   saveSettings(settings);
@@ -1705,14 +1742,15 @@ function importData(file) {
    ═══════════════════════════════════════════════════════════════ */
 
 /**
- * 通用 DeepSeek 流式调用
- * @param {string}  userContent  用户消息内容
- * @param {string}  systemPrompt 系统提示词
- * @param {function} onChunk     每收到一个 delta 时回调 (deltaText, fullText)
- * @param {string}  [model]      模型名，默认取设置中的模型
- * @returns {Promise<string>}    完整返回文本
+ * 通用 AI 流式调用（DeepSeek / 智谱GLM）
+ * 根据设置中的 vendor 自动选择 API 地址和认证方式
+ * @param {string}   userContent  用户消息内容
+ * @param {string}   systemPrompt 系统提示词
+ * @param {Function} onChunk      每收到 delta 时回调 (deltaText, fullText)
+ * @param {string}   [model]      模型名，默认取设置中的模型
+ * @returns {Promise<string>}     完整返回文本
  */
-async function callDeepSeekStream(userContent, systemPrompt, onChunk, model) {
+async function callAIStream(userContent, systemPrompt, onChunk, model) {
   const settings = loadSettings();
   if (!settings.apiKey) {
     throw new Error('NO_API_KEY');
@@ -1868,7 +1906,7 @@ async function runAiAnalysis() {
   $btnSaveAi.disabled = true;
 
   try {
-    const fullText = await callDeepSeekStream(
+    const fullText = await callAIStream(
       buildDiaryUserPrompt(title, content),
       SINGLE_DIARY_SYSTEM_PROMPT,
       function(delta, full) {
@@ -2099,7 +2137,7 @@ async function generateFramework() {
   $fwMdContent.innerHTML = '';
 
   try {
-    fwRawMarkdown = await callDeepSeekStream(
+    fwRawMarkdown = await callAIStream(
       userContent,
       FRAMEWORK_SYSTEM_PROMPT,
       function(delta, full) {
@@ -2251,6 +2289,7 @@ document.getElementById('btnSettingsCancel').addEventListener('click', closeSett
 $settingsOverlay.addEventListener('click', function(e) {
   if (e.target === $settingsOverlay) closeSettings();
 });
+$settingsVendor.addEventListener('change', onVendorChange);
 
 // ── AI 分析事件 ──
 $btnAi.addEventListener('click', runAiAnalysis);
