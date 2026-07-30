@@ -821,6 +821,29 @@ const DEFAULT_SETTINGS = {
   model:  'deepseek-v4-flash',
 };
 
+const DEFAULT_MODEL = 'deepseek-v4-flash';
+
+const SINGLE_DIARY_SYSTEM_PROMPT = `你是专业的思考整理助手，基于用户的日记内容客观提炼信息，不演绎、不煽情、不额外发挥。
+严格按以下固定结构返回，不要添加多余标题和解释：
+【核心观点】
+- 第1条最关键的思考或结论
+- 第2条最关键的思考或结论
+（2-3条即可，提炼本质，不要复述原文）
+
+【关键词】
+标签1、标签2、标签3、标签4、标签5
+（3-5个精准标签，用顿号分隔）
+
+【情绪倾向】
+一句话描述整体情绪状态，不超过20字
+
+【行动项】
+- 具体可落地的事项1
+- 具体可落地的事项2
+（没有明确行动项则填"无"）`;
+
+const FRAMEWORK_SYSTEM_PROMPT = '';
+
 const CATEGORIES = ['工作思考', '生活感悟', '学习笔记', '情绪记录'];
 
 const CATEGORY_COLOR = {
@@ -1339,44 +1362,128 @@ function applySettings() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   AI 提炼
+   AI 提炼 — 通用流式调用
    ═══════════════════════════════════════════════════════════════ */
 
-function buildAiPrompt(title, content) {
-  return `请分析以下日记内容，返回严格的 JSON 格式（不要包含 \`\`\`json 代码块标记，只返回纯 JSON 对象）：
+/**
+ * 通用 DeepSeek 流式调用
+ * @param {string}  userContent  用户消息内容
+ * @param {string}  systemPrompt 系统提示词
+ * @param {function} onChunk     每收到一个 delta 时回调 (deltaText, fullText)
+ * @param {string}  [model]      模型名，默认取设置中的模型
+ * @returns {Promise<string>}    完整返回文本
+ */
+async function callDeepSeekStream(userContent, systemPrompt, onChunk, model) {
+  const settings = loadSettings();
+  if (!settings.apiKey) {
+    throw new Error('NO_API_KEY');
+  }
 
-{
-  "coreIdeas": "用一两句话概括这篇日记的核心观点或主题",
-  "keywords": ["关键词1", "关键词2", "关键词3"],
-  "sentiment": "情绪倾向（如：平静偏正面、焦虑、兴奋、感伤等），并附一句话说明",
-  "actionItems": ["基于日记内容可执行的行动项，如无则返回空数组"]
+  const controller = new AbortController();
+  aiAbortController = controller;
+
+  const response = await fetch(`${settings.apiUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${settings.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: model || settings.model || DEFAULT_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user',   content: userContent },
+      ],
+      stream: true,
+      temperature: 0.3,
+    }),
+    signal: controller.signal,
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '');
+    let errMsg = `API 请求失败 (${response.status})`;
+    if (response.status === 401) errMsg = 'API Key 无效，请检查设置';
+    else if (response.status === 404) errMsg = 'API 地址不正确，请检查设置';
+    else if (response.status === 429) errMsg = '请求过于频繁，请稍后再试';
+    throw new Error(errMsg + (errText ? ': ' + errText : ''));
+  }
+
+  // ── SSE 流式解析 ──
+  const reader  = response.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText  = '';
+  let buffer    = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith('data:')) continue;
+      const payload = trimmed.slice(5).trim();
+      if (payload === '[DONE]') break;
+
+      try {
+        const json  = JSON.parse(payload);
+        const delta = json.choices?.[0]?.delta?.content;
+        if (delta) {
+          fullText += delta;
+          if (onChunk) onChunk(delta, fullText);
+        }
+      } catch (e) { /* 跳过无法解析的 SSE 行 */ }
+    }
+  }
+
+  return fullText;
 }
 
-日记标题：${title || '无标题'}
+/* ── 单篇日记提炼 ── */
+
+function buildDiaryUserPrompt(title, content) {
+  return `日记标题：${title || '无标题'}
 
 日记正文：
 ${content}`;
 }
 
-function parseAiResult(text) {
-  // 尝试从文本中提取 JSON 对象
-  try {
-    // 先尝试直接解析
-    return JSON.parse(text);
-  } catch (e1) {
-    // 尝试提取 {} 包裹的内容
-    const m = text.match(/\{[\s\S]*\}/);
-    if (m) {
-      try { return JSON.parse(m[0]); } catch (e2) { /* fall through */ }
-    }
-  }
-  // 解析失败，返回原始文本作为核心观点
-  return {
-    coreIdeas: text.trim() || 'AI 未返回有效分析结果',
-    keywords: [],
-    sentiment: '',
-    actionItems: [],
+function parseDiaryAiResult(text) {
+  const extractSection = (label) => {
+    const regex = new RegExp(`【${label}】\\s*\\n([\\s\\S]*?)(?=\\n【|$)`, 'i');
+    const m = text.match(regex);
+    if (!m) return '';
+    return m[1].trim();
   };
+
+  const rawCoreIdeas = extractSection('核心观点');
+  const coreIdeas = rawCoreIdeas
+    .split('\n')
+    .map(s => s.replace(/^-\s*/, '').trim())
+    .filter(Boolean)
+    .join('\n');
+
+  const rawKeywords = extractSection('关键词');
+  const keywords = rawKeywords
+    .replace(/\n/g, '')
+    .split(/[、,，]/)
+    .map(s => s.trim())
+    .filter(s => s && s !== '无');
+
+  const sentiment = extractSection('情绪倾向').replace(/\n/g, ' ').trim();
+
+  const rawActions = extractSection('行动项');
+  const actionItems = rawActions === '无' || rawActions === '' ? [] :
+    rawActions
+      .split('\n')
+      .map(s => s.replace(/^[-•]\s*/, '').trim())
+      .filter(s => s && s !== '无');
+
+  return { coreIdeas, keywords, sentiment, actionItems };
 }
 
 function displayAiResult(data) {
@@ -1414,68 +1521,17 @@ async function runAiAnalysis() {
   $aiSpinner.classList.remove('hidden');
   $btnSaveAi.disabled = true;
 
-  aiAbortController = new AbortController();
-
   try {
-    const response = await fetch(`${settings.apiUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: settings.model,
-        messages: [
-          { role: 'system', content: '你是一个专业的日记分析助手。请严格按照要求的 JSON 格式返回分析结果，不要添加任何额外的解释或 markdown 格式。' },
-          { role: 'user', content: buildAiPrompt(title, content) },
-        ],
-        stream: true,
-        temperature: 0.3,
-      }),
-      signal: aiAbortController.signal,
-    });
-
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      let errMsg = `API 请求失败 (${response.status})`;
-      if (response.status === 401) errMsg = 'API Key 无效，请检查设置';
-      else if (response.status === 404) errMsg = 'API 地址不正确，请检查设置';
-      throw new Error(errMsg + (errText ? `: ${errText}` : ''));
-    }
-
-    // ── 流式读取 ──
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let fullText = '';
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith('data:')) continue;
-        const payload = trimmed.slice(5).trim();
-        if (payload === '[DONE]') break;
-
-        try {
-          const json = JSON.parse(payload);
-          const delta = json.choices?.[0]?.delta?.content;
-          if (delta) {
-            fullText += delta;
-            $aiStreaming.textContent = fullText;
-          }
-        } catch (e) { /* 跳过无法解析的行 */ }
+    const fullText = await callDeepSeekStream(
+      buildDiaryUserPrompt(title, content),
+      SINGLE_DIARY_SYSTEM_PROMPT,
+      function(delta, full) {
+        $aiStreaming.textContent = full;
       }
-    }
+    );
 
     // ── 解析并显示结构化结果 ──
-    const parsed = parseAiResult(fullText);
+    const parsed = parseDiaryAiResult(fullText);
     displayAiResult(parsed);
     $aiStreaming.classList.add('hidden');
     $aiStructured.classList.remove('hidden');
@@ -1484,6 +1540,10 @@ async function runAiAnalysis() {
   } catch (err) {
     if (err.name === 'AbortError') {
       $aiStreaming.textContent = '[请求已取消]';
+    } else if (err.message === 'NO_API_KEY') {
+      showToast('请先在设置中配置 DeepSeek API Key');
+      openSettings();
+      $aiCard.classList.add('hidden');
     } else {
       $aiStreaming.textContent = `分析失败：${err.message}`;
     }
