@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>思录 — 日记应用</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          warm: {
+            50:  '#faf8f5',
+            100: '#f5f0ea',
+            200: '#ebe4da',
+          },
+          ink: {
+            800: '#1f2937',
+            700: '#374151',
+            600: '#4b5563',
+            500: '#6b7280',
+            400: '#9ca3af',
+            300: '#d1d5db',
+          }
+        },
+        boxShadow: {
+          'card': '0 2px 8px rgba(0, 0, 0, 0.04)',
+          'card-hover': '0 4px 16px rgba(0, 0, 0, 0.06)',
+          'nav': '0 1px 3px rgba(0, 0, 0, 0.04)',
+        },
+        borderRadius: {
+          'card': '10px',
+          'btn': '7px',
+        }
+      }
+    }
+  }
+</script>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background-color: #faf8f5;
+    color: #374151;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ── 日记列表滚动 ── */
+  .diary-list::-webkit-scrollbar {
+    width: 4px;
+  }
+  .diary-list::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .diary-list::-webkit-scrollbar-thumb {
+    background: #e5e0d8;
+    border-radius: 4px;
+  }
+  .diary-list::-webkit-scrollbar-thumb:hover {
+    background: #d5cec4;
+  }
+
+  /* ── 编辑区滚动 ── */
+  .editor-scroll::-webkit-scrollbar {
+    width: 5px;
+  }
+  .editor-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .editor-scroll::-webkit-scrollbar-thumb {
+    background: #e5e0d8;
+    border-radius: 4px;
+  }
+
+  /* ── 正文行高 ── */
+  .prose-area {
+    line-height: 1.75;
+    font-size: 15px;
+  }
+
+  /* ── 标签颜色 ── */
+  .tag-green  { color: #059669; background-color: #ecfdf5; }
+  .tag-purple { color: #7c3aed; background-color: #f5f3ff; }
+  .tag-orange { color: #ea580c; background-color: #fff7ed; }
+  .tag-blue   { color: #2563eb; background-color: #eff6ff; }
+
+  /* ── 过渡 ── */
+  .diary-item {
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .diary-item:hover {
+    background-color: #fdfcfa;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  }
+  .diary-item.active {
+    background-color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border-left: 3px solid #3b82f6;
+  }
+
+  .btn {
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  .btn-primary {
+    background-color: #3b82f6;
+    color: #ffffff;
+  }
+  .btn-primary:hover {
+    background-color: #2563eb;
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: #4b5563;
+  }
+  .btn-ghost:hover {
+    background-color: #f3f0eb;
+  }
+
+  /* ── 格式化工具栏按钮 ── */
+  .toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    color: #6b7280;
+    background: transparent;
+    border: none;
+    cursor: default;
+    font-size: 14px;
+    transition: background-color 0.15s ease;
+  }
+  .toolbar-btn:hover {
+    background-color: #f3f0eb;
+    color: #374151;
+  }
+
+  /* ── 输入框 ── */
+  .input-clean {
+    border: none;
+    outline: none;
+    background: transparent;
+    width: 100%;
+    font-family: inherit;
+    color: #374151;
+  }
+  .input-clean::placeholder {
+    color: #d1d5db;
+  }
+
+  textarea.input-clean {
+    resize: none;
+    line-height: 1.75;
+    font-size: 15px;
+  }
+  textarea.input-clean::placeholder {
+    color: #d1d5db;
+  }
+</style>
+</head>
+<body class="h-full flex flex-col">
+
+<!-- ════════════════════════ 顶部导航栏 ════════════════════════ -->
+<header class="fixed top-0 inset-x-0 z-50 h-14 bg-white/90 backdrop-blur-sm shadow-nav flex items-center px-6">
+  <!-- 左侧：应用名 -->
+  <div class="flex items-center gap-2 flex-1">
+    <span class="text-lg font-semibold tracking-tight text-ink-800">思录</span>
+    <span class="text-xs text-ink-400 font-normal mt-0.5">· 安静地记录每一天</span>
+  </div>
+
+  <!-- 右侧：操作按钮 -->
+  <div class="flex items-center gap-2">
+    <button class="btn btn-primary px-4 py-2" type="button">
+      <span class="mr-1">+</span> 新建日记
+    </button>
+    <button class="btn btn-ghost px-4 py-2" type="button">
+      思考框架
+    </button>
+    <button class="btn btn-ghost px-3 py-2" type="button">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- ════════════════════════ 主体内容区 ════════════════════════ -->
+<div class="flex flex-1 pt-14 h-full">
+
+  <!-- ─── 左侧：日记列表 (30%) ─── -->
+  <aside class="w-[30%] min-w-[320px] max-w-[420px] border-r border-ink-300/30 flex flex-col h-full bg-warm-50/60">
+
+    <!-- 筛选栏占位 -->
+    <div class="px-5 pt-5 pb-3">
+      <div class="flex items-center gap-2">
+        <!-- 搜索图标 + 占位文字 -->
+        <div class="flex-1 flex items-center gap-2 px-3 py-2 rounded-btn bg-white shadow-card text-ink-400 text-sm">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          <span class="text-ink-400">搜索日记…</span>
+        </div>
+        <!-- 筛选下拉占位 -->
+        <div class="flex items-center gap-1 px-3 py-2 rounded-btn bg-white shadow-card text-ink-500 text-sm cursor-default">
+          <span>全部</span>
+          <svg class="w-3 h-3 text-ink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- 日记列表（可滚动） -->
+    <nav class="flex-1 overflow-y-auto diary-list px-4 pb-4">
+
+      <!-- 日记条目 1 — 当前选中 -->
+      <div class="diary-item active rounded-card px-4 py-3.5 mb-1.5 cursor-default">
+        <div class="flex items-start justify-between mb-1.5">
+          <h3 class="text-sm font-medium text-ink-800 leading-relaxed">今日小记 — 窗外的梧桐开始落叶了</h3>
+        </div>
+        <p class="text-xs text-ink-400 leading-relaxed mb-2 line-clamp-2">
+          早上起来发现窗外的梧桐树叶已经黄了大半，风一吹就簌簌地往下落。秋天真的来了……
+        </p>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-ink-400">2026-07-30</span>
+          <span class="text-xs px-2 py-0.5 rounded-full tag-green">日常</span>
+        </div>
+      </div>
+
+      <!-- 日记条目 2 -->
+      <div class="diary-item rounded-card px-4 py-3.5 mb-1.5 cursor-default">
+        <div class="flex items-start justify-between mb-1.5">
+          <h3 class="text-sm font-medium text-ink-700 leading-relaxed">读完《悉达多》的一些碎片想法</h3>
+        </div>
+        <p class="text-xs text-ink-400 leading-relaxed mb-2 line-clamp-2">
+          第二次读黑塞的《悉达多》，跟二十岁时的感受完全不同。那时看到的是流浪与自由，现在读到的是……
+        </p>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-ink-400">2026-07-28</span>
+          <span class="text-xs px-2 py-0.5 rounded-full tag-purple">读书</span>
+        </div>
+      </div>
+
+      <!-- 日记条目 3 -->
+      <div class="diary-item rounded-card px-4 py-3.5 mb-1.5 cursor-default">
+        <div class="flex items-start justify-between mb-1.5">
+          <h3 class="text-sm font-medium text-ink-700 leading-relaxed">周末徒步 — 京西古道</h3>
+        </div>
+        <p class="text-xs text-ink-400 leading-relaxed mb-2 line-clamp-2">
+          走了将近 15 公里，从韭园到潭柘寺。京西古道上的马蹄窝还清晰可见，踩上去能感受到几百年前的……
+        </p>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-ink-400">2026-07-25</span>
+          <span class="text-xs px-2 py-0.5 rounded-full tag-orange">户外</span>
+        </div>
+      </div>
+
+      <!-- 日记条目 4 -->
+      <div class="diary-item rounded-card px-4 py-3.5 mb-1.5 cursor-default">
+        <div class="flex items-start justify-between mb-1.5">
+          <h3 class="text-sm font-medium text-ink-700 leading-relaxed">关于新项目的技术选型思考</h3>
+        </div>
+        <p class="text-xs text-ink-400 leading-relaxed mb-2 line-clamp-2">
+          花了整个下午对比了几个方案。最终还是决定用最稳妥的那一套，不需要在项目初期引入太多复杂性……
+        </p>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-ink-400">2026-07-22</span>
+          <span class="text-xs px-2 py-0.5 rounded-full tag-blue">工作</span>
+        </div>
+      </div>
+
+      <!-- 日记条目 5 -->
+      <div class="diary-item rounded-card px-4 py-3.5 mb-1.5 cursor-default">
+        <div class="flex items-start justify-between mb-1.5">
+          <h3 class="text-sm font-medium text-ink-700 leading-relaxed">学着做红烧肉，意外地成功</h3>
+        </div>
+        <p class="text-xs text-ink-400 leading-relaxed mb-2 line-clamp-2">
+          第一次尝试做红烧肉，跟着视频一步一步来。炒糖色的时候差点糊了，但最后成品意外地好吃……
+        </p>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-ink-400">2026-07-20</span>
+          <span class="text-xs px-2 py-0.5 rounded-full tag-green">日常</span>
+        </div>
+      </div>
+
+      <!-- 日记条目 6 -->
+      <div class="diary-item rounded-card px-4 py-3.5 mb-1.5 cursor-default">
+        <div class="flex items-start justify-between mb-1.5">
+          <h3 class="text-sm font-medium text-ink-700 leading-relaxed">焦虑的时候，写下来就好了</h3>
+        </div>
+        <p class="text-xs text-ink-400 leading-relaxed mb-2 line-clamp-2">
+          最近有些莫名的焦虑感，不知道在担心什么。打开日记本写了几段之后，那种紧绷的感觉慢慢松开了……
+        </p>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-ink-400">2026-07-18</span>
+          <span class="text-xs px-2 py-0.5 rounded-full tag-purple">思考</span>
+        </div>
+      </div>
+
+    </nav>
+  </aside>
+
+  <!-- ─── 右侧：日记编辑区 (70%) ─── -->
+  <main class="flex-1 flex flex-col h-full overflow-hidden bg-warm-50/40">
+
+    <!-- 编辑区滚动容器 -->
+    <div class="flex-1 overflow-y-auto editor-scroll">
+      <div class="max-w-3xl mx-auto px-10 py-8">
+
+        <!-- 编辑卡片 -->
+        <div class="bg-white rounded-card shadow-card p-8">
+
+          <!-- 日期 -->
+          <div class="text-xs text-ink-400 mb-5 tracking-wide">
+            2026 年 7 月 30 日 · 星期四
+          </div>
+
+          <!-- 标题输入 -->
+          <input
+            type="text"
+            class="input-clean text-xl font-semibold text-ink-800 mb-4 placeholder:text-ink-300"
+            placeholder="给这篇日记起个标题…"
+            value="今日小记 — 窗外的梧桐开始落叶了"
+          >
+
+          <!-- 分类标签选择（静态占位） -->
+          <div class="flex items-center gap-2 mb-6">
+            <span class="text-xs text-ink-400">分类：</span>
+            <span class="text-xs px-3 py-1 rounded-full tag-green cursor-default">日常</span>
+            <span class="text-xs px-3 py-1 rounded-full text-ink-400 bg-gray-100 cursor-default">读书</span>
+            <span class="text-xs px-3 py-1 rounded-full text-ink-400 bg-gray-100 cursor-default">工作</span>
+            <span class="text-xs px-3 py-1 rounded-full text-ink-400 bg-gray-100 cursor-default">户外</span>
+            <span class="text-xs px-3 py-1 rounded-full text-ink-400 bg-gray-100 cursor-default">思考</span>
+          </div>
+
+          <!-- 格式化工具栏（静态占位） -->
+          <div class="flex items-center gap-0.5 mb-5 pb-4 border-b border-gray-100">
+            <button class="toolbar-btn font-bold" type="button">B</button>
+            <button class="toolbar-btn italic" type="button" style="font-style:italic">I</button>
+            <button class="toolbar-btn underline" type="button" style="text-decoration:underline">U</button>
+            <span class="w-px h-5 bg-gray-200 mx-1.5"></span>
+            <button class="toolbar-btn font-semibold" type="button">H1</button>
+            <button class="toolbar-btn font-medium" type="button">H2</button>
+            <span class="w-px h-5 bg-gray-200 mx-1.5"></span>
+            <button class="toolbar-btn" type="button">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7"></path>
+              </svg>
+            </button>
+            <button class="toolbar-btn" type="button">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+              </svg>
+            </button>
+          </div>
+
+          <!-- 正文编辑区 -->
+          <textarea
+            class="input-clean prose-area w-full min-h-[420px] placeholder:text-ink-300"
+            placeholder="开始写点什么…"
+          >早上起来发现窗外的梧桐树叶已经黄了大半，风一吹就簌簌地往下落。秋天真的来了。
+
+翻开日历才发现，距离立秋也才过了一周。今年的夏天好像特别短暂，还没来得及去一趟海边，蝉鸣声就稀疏了。
+
+泡了杯热茶，坐在窗前发了会儿呆。最近工作上节奏很快，已经很久没有这样安静地坐着了。想起昨天读的那本书里说：「一个人能安静地独处，是一种了不起的能力。」
+
+也许我该多给自己安排一些这样的时刻。不需要产出什么，也不需要达成什么目标，只是单纯地存在着，感受着当下的温度、光线、风声。
+
+下午打算去趟菜市场，买点排骨回来炖汤。天凉了，适合喝热汤。</textarea>
+
+        </div>
+
+        <!-- 底部操作区 -->
+        <div class="flex items-center justify-between mt-5 px-1">
+          <div class="text-xs text-ink-400">
+            最后保存：今天 10:32
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="btn btn-ghost px-4 py-2 text-sm" type="button">
+              存为草稿
+            </button>
+            <button class="btn btn-primary px-5 py-2 text-sm" type="button">
+              保存日记
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+</div>
+
+</body>
+</html>
