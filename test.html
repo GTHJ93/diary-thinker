@@ -1008,35 +1008,32 @@ const SINGLE_DIARY_SYSTEM_PROMPT = `你是专业的思考整理助手，基于�
 - 具体可落地的事项2
 （没有明确行动项则填"无"）`;
 
-const FRAMEWORK_SYSTEM_PROMPT = `你是专业的思考整理助手，基于用户一段时间内的多篇日记进行聚合深度分析。不演绎、不煽情、不额外发挥。
+const FRAMEWORK_SYSTEM_PROMPT = `你是思考架构师，请将用户提供的多篇零散日记聚合为一套结构化的思考框架。
+要求：
+1. 不要罗列日记原文，做归纳和抽象，提炼共性主题
+2. 每个主题下梳理：核心结论、反复出现的困惑、认知上的变化
+3. 最后总结待深入的问题和可推进的方向
+4. 用 Markdown 分级标题输出，逻辑递进清晰，层级不超过三级
+5. 语言精炼，避免空话套话，基于日记内容，不凭空杜撰
 
-严格按以下 Markdown 结构返回，标题使用 ## 和 ### 分级：
+输出固定结构：
+## 一、核心主题总览
+（一段话概括这段时间思考的主线）
 
-## 📊 周期概述
-用 2-3 句话概括这段时间的整体状态和关键变化。
+## 二、分主题拆解
+### 主题1：XXX
+- 核心结论：
+- 反复出现的关注点：
+- 认知变化：
 
-## 🧩 核心主题
-- 主题1：简要描述
-- 主题2：简要描述
-（识别日记中反复出现的 3-5 个主题，不要复述原文）
+### 主题2：XXX
+- 核心结论：
+- 反复出现的关注点：
+- 认知变化：
 
-## 📈 情绪变化轨迹
-按时间顺序描述情绪波动，例如：
-- 7月18日：焦虑不安 — 对未发生的事感到担忧
-- 7月20日：平稳满足 — 做饭带来的治愈感
-（每条标注日期和情绪状态）
-
-## 💡 关键洞察
-- 洞察1：从日记中提炼的深层发现
-- 洞察2
-（2-4 条，提炼跨日记的规律或顿悟）
-
-## ✅ 行动建议
-- 具体可执行的建议1
-- 具体可执行的建议2
-（2-4 条，基于日记内容给出的下一步行动方向）
-
-内容要求：每条观点必须来自日记原文的归纳，不编造用户未写过的内容。`;
+## 三、待探索的问题与下一步方向
+- 问题1：
+- 可推进方向1：`;
 
 const CATEGORIES = ['工作思考', '生活感悟', '学习笔记', '情绪记录'];
 
@@ -1878,6 +1875,57 @@ function renderMarkdown(md) {
   return '<p>' + html + '</p>';
 }
 
+function compressDiaryForFramework(entry) {
+  const dateLabel = entry.date || '';
+  const catLabel  = entry.category || '';
+
+  // 优先用已保存的 AI 核心观点
+  if (entry.summary && entry.summary.coreIdeas) {
+    return `【${dateLabel} ${catLabel}】${entry.title || '无标题'} — ${entry.summary.coreIdeas}`;
+  }
+
+  const title   = entry.title || '无标题';
+  const content = (entry.content || '').trim();
+  if (!content) return `【${dateLabel} ${catLabel}】${title}`;
+
+  // 按段落拆分
+  const paras = content.split(/\n\n+/).filter(p => p.trim());
+  if (paras.length === 0) {
+    return `【${dateLabel} ${catLabel}】${title} — ${content.slice(0, 400)}`;
+  }
+
+  // 取首段 + 尾段（尾段常含反思/结论）
+  const firstPara = paras[0].trim();
+  const lastPara  = paras.length > 1 ? paras[paras.length - 1].trim() : '';
+
+  // 每段取首尾两句
+  const paraHighlights = paras.slice(1, -1).map(p => {
+    const sents = p.split(/[。！？\.!\?]/).filter(s => s.trim());
+    if (sents.length <= 2) return sents.join('。');
+    return sents[0].trim() + '…' + sents[sents.length - 1].trim();
+  }).filter(Boolean);
+
+  let compressed = `【${dateLabel} ${catLabel}】${title}\n${firstPara}`;
+  if (len(compressed) > 300) {
+    compressed = compressed.slice(0, 300) + '…';
+  }
+
+  if (lastPara && lastPara !== firstPara) {
+    const tail = '\n' + (len(lastPara) > 150 ? lastPara.slice(0, 150) + '…' : lastPara);
+    if (len(compressed) + len(tail) < 400) compressed += tail;
+  }
+
+  for (const h of paraHighlights) {
+    const snippet = '\n> ' + h;
+    if (len(compressed) + len(snippet) > 400) break;
+    compressed += snippet;
+  }
+
+  return compressed;
+}
+
+function len(s) { return s.length; }
+
 async function generateFramework() {
   const filtered = getFrameworkFilteredEntries();
   if (filtered.length === 0) {
@@ -1894,16 +1942,9 @@ async function generateFramework() {
 
   if (isAiLoading) return;
 
-  // ── 构建用户消息 ──
-  const diaryList = filtered.map((e, i) =>
-    `### 日记 ${i + 1}
-- 日期：${e.date}
-- 分类：${e.category || '无'}
-- 标题：${e.title || '无标题'}
-- 正文：${e.content || '(无内容)'}`
-  ).join('\n\n');
-
-  const userContent = `以下是我在 ${$fwDateFrom.value} 至 ${$fwDateTo.value} 期间的 ${filtered.length} 篇日记，请按聚合分析框架进行深度整理：\n\n${diaryList}`;
+  // ── 压缩每篇日记后拼接 ──
+  const diaryList = filtered.map((e, i) => `${i + 1}. ${compressDiaryForFramework(e)}`).join('\n\n');
+  const userContent = `以下是我在 ${$fwDateFrom.value} 至 ${$fwDateTo.value} 期间的 ${filtered.length} 篇日记的精简摘要，请按聚合分析框架进行深度整理：\n\n${diaryList}`;
 
   // ── 进入加载态 ──
   isAiLoading = true;
