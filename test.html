@@ -1441,6 +1441,7 @@ function escHtml(s) {
 function selectEntry(id) {
   const entry = entries.find(e => e.id === id);
   if (!entry) return;
+  switchView('editor'); // 确保切回编辑视图
   currentId = id;
   loadIntoEditor(entry);
   renderList();
@@ -1458,6 +1459,7 @@ function updateTitlePlaceholder() {
 }
 
 function newEntry() {
+  switchView('editor'); // 确保切回编辑视图
   currentId = null;
   const today = toDateStr(new Date());
   $date.value    = today;
@@ -1940,17 +1942,20 @@ function saveAiToDiary() {
    思考框架
    ═══════════════════════════════════════════════════════════════ */
 
-function switchToFramework() {
-  $editorView.classList.add('hidden');
-  $frameworkView.classList.remove('hidden');
-  // 初始化日期：近7天
-  updateFrameworkDates();
+/** 统一视图切换：'editor' | 'framework' */
+function switchView(view) {
+  if (view === 'framework') {
+    $editorView.classList.add('hidden');
+    $frameworkView.classList.remove('hidden');
+    updateFrameworkDates();
+  } else {
+    $frameworkView.classList.add('hidden');
+    $editorView.classList.remove('hidden');
+  }
 }
 
-function switchToEditor() {
-  $frameworkView.classList.add('hidden');
-  $editorView.classList.remove('hidden');
-}
+function switchToFramework() { switchView('framework'); }
+function switchToEditor()   { switchView('editor');   }
 
 function updateFrameworkDates() {
   const today = new Date();
