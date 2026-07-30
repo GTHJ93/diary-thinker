@@ -577,6 +577,105 @@
     color: #d1d5db;
     cursor: not-allowed;
   }
+
+  /* ── 思考框架页面 ── */
+  .framework-config {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+  .framework-config h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 16px;
+  }
+  .time-range-group {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .time-range-btn {
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: 1px solid #e5e0d8;
+    background: #fdfcfa;
+    color: #6b7280;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .time-range-btn:hover {
+    border-color: #3b82f6;
+    color: #3b82f6;
+  }
+  .time-range-btn.active {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #2563eb;
+    font-weight: 600;
+  }
+  .time-range-custom {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ── 面包屑 ── */
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #9ca3af;
+    margin-bottom: 16px;
+  }
+  .breadcrumb a {
+    color: #6b7280;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .breadcrumb a:hover {
+    color: #3b82f6;
+  }
+  .breadcrumb .sep {
+    color: #d1d5db;
+  }
+
+  /* ── Markdown 渲染 ── */
+  .md-content {
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.75;
+  }
+  .md-content h1 { font-size: 22px; font-weight: 700; color: #1f2937; margin: 20px 0 10px; }
+  .md-content h2 { font-size: 18px; font-weight: 600; color: #1f2937; margin: 18px 0 8px; padding-bottom: 6px; border-bottom: 1px solid #f3f0eb; }
+  .md-content h3 { font-size: 15px; font-weight: 600; color: #374151; margin: 14px 0 6px; }
+  .md-content p  { margin: 8px 0; }
+  .md-content ul { margin: 6px 0; padding-left: 20px; }
+  .md-content li { margin: 3px 0; }
+  .md-content strong { color: #1f2937; }
+  .md-content em   { color: #6b7280; }
+  .md-content hr   { border: none; border-top: 1px solid #e5e0d8; margin: 16px 0; }
+  .md-content code { background: #f3f0eb; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+
+  /* ── 框架结果卡 ── */
+  .framework-result-card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    padding: 24px 28px;
+    min-height: 200px;
+  }
+  .framework-result-card .empty-hint {
+    color: #9ca3af;
+    text-align: center;
+    padding: 40px 0;
+    font-size: 14px;
+  }
 </style>
 </head>
 <body class="h-full flex flex-col">
@@ -592,7 +691,7 @@
     <button class="btn btn-primary px-4 py-2" type="button" id="btnNew">
       <span class="mr-1">+</span> 新建日记
     </button>
-    <button class="btn btn-ghost px-4 py-2" type="button">
+    <button class="btn btn-ghost px-4 py-2" type="button" id="btnFramework">
       思考框架
     </button>
     <button class="btn btn-ghost px-3 py-2" type="button" id="btnSettings">
@@ -636,7 +735,8 @@
   <!-- ─── 右侧：日记编辑区 (70%) ─── -->
   <main class="flex-1 flex flex-col h-full overflow-hidden bg-warm-50/40">
 
-    <div class="flex-1 overflow-y-auto editor-scroll">
+    <!-- ═══ 编辑视图 ═══ -->
+    <div id="editorView" class="flex-1 overflow-y-auto editor-scroll">
       <div class="max-w-3xl mx-auto px-10 py-8">
 
         <div class="bg-white rounded-card shadow-card p-8">
@@ -760,6 +860,72 @@
       </div>
     </div>
 
+  </div><!-- /editorView -->
+
+  <!-- ═══ 思考框架视图 ═══ -->
+  <div id="frameworkView" class="hidden flex-1 overflow-y-auto editor-scroll">
+    <div class="max-w-3xl mx-auto px-10 py-8">
+
+      <!-- 面包屑 -->
+      <div class="breadcrumb">
+        <a id="breadcrumbHome">思录</a>
+        <span class="sep">›</span>
+        <span>思考框架</span>
+      </div>
+
+      <!-- 配置区 -->
+      <div class="framework-config">
+        <h3>🧠 聚合分析配置</h3>
+
+        <!-- 时间范围选择 -->
+        <div class="time-range-group" id="timeRangeGroup">
+          <button class="time-range-btn active" data-range="7d">近 7 天</button>
+          <button class="time-range-btn" data-range="month">本月</button>
+          <button class="time-range-btn" data-range="custom">自定义</button>
+        </div>
+        <div class="time-range-custom hidden mb-3" id="customDateRange">
+          <input type="date" id="fwDateFrom" class="filter-date" style="min-width:130px">
+          <span class="text-xs text-ink-400">至</span>
+          <input type="date" id="fwDateTo"   class="filter-date" style="min-width:130px">
+        </div>
+
+        <!-- 分类 + 生成按钮 -->
+        <div class="flex items-end gap-3">
+          <div class="flex-1">
+            <label class="text-xs text-ink-500 font-medium block mb-1">分类筛选</label>
+            <select id="fwCategory" class="category-select" style="width:100%">
+              <option value="">全部分类</option>
+              <option value="工作思考">工作思考</option>
+              <option value="生活感悟">生活感悟</option>
+              <option value="学习笔记">学习笔记</option>
+              <option value="情绪记录">情绪记录</option>
+            </select>
+          </div>
+          <button class="btn btn-primary px-5 py-2 flex-shrink-0" id="btnGenerate" type="button">
+            ✨ 生成思考框架
+          </button>
+        </div>
+      </div>
+
+      <!-- 结果区 -->
+      <div class="framework-result-card" id="fwResultCard">
+        <div class="empty-hint" id="fwEmptyHint">
+          选择时间范围和分类后，点击「生成思考框架」<br>AI 将对筛选范围内的日记进行聚合分析
+        </div>
+        <div class="md-content hidden" id="fwMdContent"></div>
+        <div class="spinner hidden mt-6" id="fwSpinner" style="display:block;margin:20px auto"></div>
+      </div>
+
+      <!-- 复制按钮 -->
+      <div class="flex justify-end mt-4 hidden" id="fwCopyBar">
+        <button class="btn btn-ghost px-4 py-2 text-sm" id="btnCopyMd" type="button">
+          📋 复制为 Markdown
+        </button>
+      </div>
+
+    </div>
+  </div><!-- /frameworkView -->
+
   </main>
 
 </div>
@@ -842,7 +1008,35 @@ const SINGLE_DIARY_SYSTEM_PROMPT = `你是专业的思考整理助手，基于�
 - 具体可落地的事项2
 （没有明确行动项则填"无"）`;
 
-const FRAMEWORK_SYSTEM_PROMPT = '';
+const FRAMEWORK_SYSTEM_PROMPT = `你是专业的思考整理助手，基于用户一段时间内的多篇日记进行聚合深度分析。不演绎、不煽情、不额外发挥。
+
+严格按以下 Markdown 结构返回，标题使用 ## 和 ### 分级：
+
+## 📊 周期概述
+用 2-3 句话概括这段时间的整体状态和关键变化。
+
+## 🧩 核心主题
+- 主题1：简要描述
+- 主题2：简要描述
+（识别日记中反复出现的 3-5 个主题，不要复述原文）
+
+## 📈 情绪变化轨迹
+按时间顺序描述情绪波动，例如：
+- 7月18日：焦虑不安 — 对未发生的事感到担忧
+- 7月20日：平稳满足 — 做饭带来的治愈感
+（每条标注日期和情绪状态）
+
+## 💡 关键洞察
+- 洞察1：从日记中提炼的深层发现
+- 洞察2
+（2-4 条，提炼跨日记的规律或顿悟）
+
+## ✅ 行动建议
+- 具体可执行的建议1
+- 具体可执行的建议2
+（2-4 条，基于日记内容给出的下一步行动方向）
+
+内容要求：每条观点必须来自日记原文的归纳，不编造用户未写过的内容。`;
 
 const CATEGORIES = ['工作思考', '生活感悟', '学习笔记', '情绪记录'];
 
@@ -939,6 +1133,22 @@ const $settingsOverlay = document.getElementById('settingsOverlay');
 const $settingsApiKey  = document.getElementById('settingsApiKey');
 const $settingsApiUrl  = document.getElementById('settingsApiUrl');
 const $settingsModel   = document.getElementById('settingsModel');
+
+/* ── 思考框架 DOM ── */
+const $editorView    = document.getElementById('editorView');
+const $frameworkView = document.getElementById('frameworkView');
+const $fwResultCard  = document.getElementById('fwResultCard');
+const $fwEmptyHint   = document.getElementById('fwEmptyHint');
+const $fwMdContent   = document.getElementById('fwMdContent');
+const $fwSpinner     = document.getElementById('fwSpinner');
+const $fwCopyBar     = document.getElementById('fwCopyBar');
+const $fwDateFrom    = document.getElementById('fwDateFrom');
+const $fwDateTo      = document.getElementById('fwDateTo');
+const $fwCategory    = document.getElementById('fwCategory');
+const $customRange   = document.getElementById('customDateRange');
+
+let frameworkTimeRange = '7d';  // '7d' | 'month' | 'custom'
+let fwRawMarkdown = '';         // AI 返回的原始 Markdown
 
 let pendingDeleteId = null;
 
@@ -1593,6 +1803,173 @@ function saveAiToDiary() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   思考框架
+   ═══════════════════════════════════════════════════════════════ */
+
+function switchToFramework() {
+  $editorView.classList.add('hidden');
+  $frameworkView.classList.remove('hidden');
+  // 初始化日期：近7天
+  updateFrameworkDates();
+}
+
+function switchToEditor() {
+  $frameworkView.classList.add('hidden');
+  $editorView.classList.remove('hidden');
+}
+
+function updateFrameworkDates() {
+  const today = new Date();
+  if (frameworkTimeRange === '7d') {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 6);
+    $fwDateFrom.value = toDateStr(d);
+    $fwDateTo.value   = toDateStr(today);
+    $customRange.classList.add('hidden');
+  } else if (frameworkTimeRange === 'month') {
+    $fwDateFrom.value = toDateStr(new Date(today.getFullYear(), today.getMonth(), 1));
+    $fwDateTo.value   = toDateStr(today);
+    $customRange.classList.add('hidden');
+  } else {
+    $customRange.classList.remove('hidden');
+  }
+}
+
+function getFrameworkFilteredEntries() {
+  const from = $fwDateFrom.value;
+  const to   = $fwDateTo.value;
+  const cat  = $fwCategory.value;
+
+  return entries.filter(e => {
+    if (from && e.date < from) return false;
+    if (to   && e.date > to)   return false;
+    if (cat  && e.category !== cat) return false;
+    return true;
+  }).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function renderMarkdown(md) {
+  if (!md) return '';
+  // 简单 Markdown → HTML
+  let html = md
+    // 转义
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // 标题
+    .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    // 粗体 / 斜体
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // 无序列表
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    // 分隔线
+    .replace(/^---$/gm, '<hr>')
+    // 段落：连续的非空非标签行
+    .replace(/\n\n+/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+
+  // 包裹 <li> 序列为 <ul>
+  html = html.replace(/((?:<li>.*?<\/li><br>\s*)+)/g, function(m) {
+    return '<ul>' + m.replace(/<br>\s*$/, '') + '</ul>';
+  });
+
+  return '<p>' + html + '</p>';
+}
+
+async function generateFramework() {
+  const filtered = getFrameworkFilteredEntries();
+  if (filtered.length === 0) {
+    showToast('筛选范围内没有日记');
+    return;
+  }
+
+  const settings = loadSettings();
+  if (!settings.apiKey) {
+    showToast('请先在设置中配置 DeepSeek API Key');
+    openSettings();
+    return;
+  }
+
+  if (isAiLoading) return;
+
+  // ── 构建用户消息 ──
+  const diaryList = filtered.map((e, i) =>
+    `### 日记 ${i + 1}
+- 日期：${e.date}
+- 分类：${e.category || '无'}
+- 标题：${e.title || '无标题'}
+- 正文：${e.content || '(无内容)'}`
+  ).join('\n\n');
+
+  const userContent = `以下是我在 ${$fwDateFrom.value} 至 ${$fwDateTo.value} 期间的 ${filtered.length} 篇日记，请按聚合分析框架进行深度整理：\n\n${diaryList}`;
+
+  // ── 进入加载态 ──
+  isAiLoading = true;
+  $fwEmptyHint.classList.add('hidden');
+  $fwMdContent.classList.add('hidden');
+  $fwSpinner.classList.remove('hidden');
+  $fwCopyBar.classList.add('hidden');
+  document.getElementById('btnGenerate').disabled = true;
+  document.getElementById('btnGenerate').textContent = '⏳ 分析中…';
+  $fwMdContent.innerHTML = '';
+
+  try {
+    fwRawMarkdown = await callDeepSeekStream(
+      userContent,
+      FRAMEWORK_SYSTEM_PROMPT,
+      function(delta, full) {
+        // 实时渲染
+        $fwMdContent.classList.remove('hidden');
+        $fwMdContent.innerHTML = renderMarkdown(full);
+        // 自动滚到底部
+        $fwMdContent.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    );
+
+    $fwMdContent.innerHTML = renderMarkdown(fwRawMarkdown);
+    $fwMdContent.classList.remove('hidden');
+    $fwCopyBar.classList.remove('hidden');
+
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      $fwMdContent.innerHTML = '<p style="color:#9ca3af">[请求已取消]</p>';
+    } else if (err.message === 'NO_API_KEY') {
+      showToast('请先在设置中配置 DeepSeek API Key');
+      openSettings();
+      $fwEmptyHint.classList.remove('hidden');
+    } else {
+      $fwMdContent.innerHTML = `<p style="color:#ef4444">分析失败：${escHtml(err.message)}</p>`;
+    }
+    $fwMdContent.classList.remove('hidden');
+  } finally {
+    isAiLoading = false;
+    $fwSpinner.classList.add('hidden');
+    document.getElementById('btnGenerate').disabled = false;
+    document.getElementById('btnGenerate').textContent = '✨ 生成思考框架';
+  }
+}
+
+async function copyMarkdown() {
+  if (!fwRawMarkdown) return;
+  try {
+    await navigator.clipboard.writeText(fwRawMarkdown);
+    showToast('已复制到剪贴板');
+  } catch (e) {
+    // 降级方案
+    const ta = document.createElement('textarea');
+    ta.value = fwRawMarkdown;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('已复制到剪贴板');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    Toast
    ═══════════════════════════════════════════════════════════════ */
 
@@ -1667,6 +2044,26 @@ $settingsOverlay.addEventListener('click', function(e) {
 // ── AI 分析事件 ──
 $btnAi.addEventListener('click', runAiAnalysis);
 $btnSaveAi.addEventListener('click', saveAiToDiary);
+
+// ── 思考框架事件 ──
+document.getElementById('btnFramework').addEventListener('click', switchToFramework);
+document.getElementById('breadcrumbHome').addEventListener('click', switchToEditor);
+document.getElementById('btnGenerate').addEventListener('click', generateFramework);
+document.getElementById('btnCopyMd').addEventListener('click', copyMarkdown);
+
+// 时间范围切换
+document.querySelectorAll('#timeRangeGroup .time-range-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#timeRangeGroup .time-range-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    frameworkTimeRange = this.dataset.range;
+    updateFrameworkDates();
+  });
+});
+
+// 自定义日期变更
+$fwDateFrom.addEventListener('change', function() { frameworkTimeRange = 'custom'; });
+$fwDateTo.addEventListener('change', function() { frameworkTimeRange = 'custom'; });
 
 // ── 筛选事件 ──
 $filterCat.addEventListener('change', function() {
