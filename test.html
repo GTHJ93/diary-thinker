@@ -94,6 +94,7 @@
   /* ── 过渡 ── */
   .diary-item {
     transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
   }
   .diary-item:hover {
     background-color: #fdfcfa;
@@ -111,6 +112,9 @@
     font-size: 13px;
     font-weight: 500;
     letter-spacing: 0.01em;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
   }
 
   .btn-primary {
@@ -129,6 +133,44 @@
     background-color: #f3f0eb;
   }
 
+  .btn-danger {
+    background-color: transparent;
+    color: #9ca3af;
+  }
+  .btn-danger:hover {
+    background-color: #fef2f2;
+    color: #ef4444;
+  }
+
+  /* ── 列表项删除按钮 ── */
+  .delete-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    border: none;
+    background: transparent;
+    color: #d1d5db;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+    font-size: 16px;
+    line-height: 1;
+    font-family: inherit;
+  }
+  .diary-item:hover .delete-btn {
+    opacity: 1;
+  }
+  .delete-btn:hover {
+    color: #ef4444;
+    background-color: #fef2f2;
+  }
+
   /* ── 格式化工具栏按钮 ── */
   .toolbar-btn {
     display: inline-flex;
@@ -143,6 +185,7 @@
     cursor: default;
     font-size: 14px;
     transition: background-color 0.15s ease;
+    font-family: inherit;
   }
   .toolbar-btn:hover {
     background-color: #f3f0eb;
@@ -170,21 +213,186 @@
   textarea.input-clean::placeholder {
     color: #d1d5db;
   }
+
+  /* ── 日期选择器 ── */
+  .date-input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+  }
+  .date-input::-webkit-calendar-picker-indicator {
+    opacity: 0.5;
+    cursor: pointer;
+  }
+
+  /* ── 分类下拉 ── */
+  .category-select {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid #e5e0d8;
+    outline: none;
+    background: #fdfcfa;
+    font-family: inherit;
+    font-size: 13px;
+    color: #374151;
+    padding: 6px 32px 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    transition: border-color 0.15s ease;
+  }
+  .category-select:hover {
+    border-color: #d1d5db;
+  }
+  .category-select:focus {
+    border-color: #3b82f6;
+  }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #1f2937;
+    color: #fff;
+    font-size: 13px;
+    padding: 10px 24px;
+    border-radius: 8px;
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    z-index: 100;
+    pointer-events: none;
+    font-family: inherit;
+  }
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+
+  /* ── 确认对话框遮罩 ── */
+  .confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.15);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .confirm-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .confirm-dialog {
+    background: #fff;
+    border-radius: 12px;
+    padding: 28px 32px 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    max-width: 360px;
+    width: 90%;
+    text-align: center;
+  }
+  .confirm-dialog p {
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  .confirm-dialog .confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  /* ── 草稿恢复提示条 ── */
+  .draft-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    background: #fefce8;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #92400e;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .draft-banner.hidden {
+    display: none;
+  }
+  .draft-banner .draft-time {
+    color: #a16207;
+    font-size: 12px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .draft-banner .draft-link {
+    color: #2563eb;
+    cursor: pointer;
+    font-weight: 500;
+    white-space: nowrap;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 13px;
+    padding: 0;
+  }
+  .draft-banner .draft-link:hover {
+    text-decoration: underline;
+  }
+  .draft-banner .draft-link.danger {
+    color: #9ca3af;
+    margin-left: 4px;
+  }
+  .draft-banner .draft-link.danger:hover {
+    color: #ef4444;
+  }
+
+  /* ── 草稿保存中指示点 ── */
+  .draft-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #f59e0b;
+    margin-right: 6px;
+    vertical-align: middle;
+    animation: draft-pulse 2s ease-in-out infinite;
+  }
+  .draft-dot.saved {
+    background: #10b981;
+    animation: none;
+  }
+  @keyframes draft-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.4; }
+  }
 </style>
 </head>
 <body class="h-full flex flex-col">
 
 <!-- ════════════════════════ 顶部导航栏 ════════════════════════ -->
 <header class="fixed top-0 inset-x-0 z-50 h-14 bg-white/90 backdrop-blur-sm shadow-nav flex items-center px-6">
-  <!-- 左侧：应用名 -->
   <div class="flex items-center gap-2 flex-1">
     <span class="text-lg font-semibold tracking-tight text-ink-800">思录</span>
     <span class="text-xs text-ink-400 font-normal mt-0.5">· 安静地记录每一天</span>
   </div>
 
-  <!-- 右侧：操作按钮 -->
   <div class="flex items-center gap-2">
-    <button class="btn btn-primary px-4 py-2" type="button">
+    <button class="btn btn-primary px-4 py-2" type="button" id="btnNew">
       <span class="mr-1">+</span> 新建日记
     </button>
     <button class="btn btn-ghost px-4 py-2" type="button">
@@ -208,14 +416,12 @@
     <!-- 筛选栏占位 -->
     <div class="px-5 pt-5 pb-3">
       <div class="flex items-center gap-2">
-        <!-- 搜索图标 + 占位文字 -->
         <div class="flex-1 flex items-center gap-2 px-3 py-2 rounded-btn bg-white shadow-card text-ink-400 text-sm">
           <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
           </svg>
           <span class="text-ink-400">搜索日记…</span>
         </div>
-        <!-- 筛选下拉占位 -->
         <div class="flex items-center gap-1 px-3 py-2 rounded-btn bg-white shadow-card text-ink-500 text-sm cursor-default">
           <span>全部</span>
           <svg class="w-3 h-3 text-ink-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -226,126 +432,52 @@
     </div>
 
     <!-- 日记列表（可滚动） -->
-    <nav class="flex-1 overflow-y-auto diary-list px-4 pb-4">
-
-      <!-- 日记条目 1 — 当前选中 -->
-      <div class="diary-item active rounded-card px-4 py-3.5 mb-1.5 cursor-default">
-        <div class="flex items-start justify-between mb-1.5">
-          <h3 class="text-sm font-medium text-ink-800 leading-relaxed">今日小记 — 窗外的梧桐开始落叶了</h3>
-        </div>
-        <p class="text-xs text-ink-400 leading-relaxed mb-2 line-clamp-2">
-          早上起来发现窗外的梧桐树叶已经黄了大半，风一吹就簌簌地往下落。秋天真的来了……
-        </p>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-ink-400">2026-07-30</span>
-          <span class="text-xs px-2 py-0.5 rounded-full tag-green">日常</span>
-        </div>
-      </div>
-
-      <!-- 日记条目 2 -->
-      <div class="diary-item rounded-card px-4 py-3.5 mb-1.5 cursor-default">
-        <div class="flex items-start justify-between mb-1.5">
-          <h3 class="text-sm font-medium text-ink-700 leading-relaxed">读完《悉达多》的一些碎片想法</h3>
-        </div>
-        <p class="text-xs text-ink-400 leading-relaxed mb-2 line-clamp-2">
-          第二次读黑塞的《悉达多》，跟二十岁时的感受完全不同。那时看到的是流浪与自由，现在读到的是……
-        </p>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-ink-400">2026-07-28</span>
-          <span class="text-xs px-2 py-0.5 rounded-full tag-purple">读书</span>
-        </div>
-      </div>
-
-      <!-- 日记条目 3 -->
-      <div class="diary-item rounded-card px-4 py-3.5 mb-1.5 cursor-default">
-        <div class="flex items-start justify-between mb-1.5">
-          <h3 class="text-sm font-medium text-ink-700 leading-relaxed">周末徒步 — 京西古道</h3>
-        </div>
-        <p class="text-xs text-ink-400 leading-relaxed mb-2 line-clamp-2">
-          走了将近 15 公里，从韭园到潭柘寺。京西古道上的马蹄窝还清晰可见，踩上去能感受到几百年前的……
-        </p>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-ink-400">2026-07-25</span>
-          <span class="text-xs px-2 py-0.5 rounded-full tag-orange">户外</span>
-        </div>
-      </div>
-
-      <!-- 日记条目 4 -->
-      <div class="diary-item rounded-card px-4 py-3.5 mb-1.5 cursor-default">
-        <div class="flex items-start justify-between mb-1.5">
-          <h3 class="text-sm font-medium text-ink-700 leading-relaxed">关于新项目的技术选型思考</h3>
-        </div>
-        <p class="text-xs text-ink-400 leading-relaxed mb-2 line-clamp-2">
-          花了整个下午对比了几个方案。最终还是决定用最稳妥的那一套，不需要在项目初期引入太多复杂性……
-        </p>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-ink-400">2026-07-22</span>
-          <span class="text-xs px-2 py-0.5 rounded-full tag-blue">工作</span>
-        </div>
-      </div>
-
-      <!-- 日记条目 5 -->
-      <div class="diary-item rounded-card px-4 py-3.5 mb-1.5 cursor-default">
-        <div class="flex items-start justify-between mb-1.5">
-          <h3 class="text-sm font-medium text-ink-700 leading-relaxed">学着做红烧肉，意外地成功</h3>
-        </div>
-        <p class="text-xs text-ink-400 leading-relaxed mb-2 line-clamp-2">
-          第一次尝试做红烧肉，跟着视频一步一步来。炒糖色的时候差点糊了，但最后成品意外地好吃……
-        </p>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-ink-400">2026-07-20</span>
-          <span class="text-xs px-2 py-0.5 rounded-full tag-green">日常</span>
-        </div>
-      </div>
-
-      <!-- 日记条目 6 -->
-      <div class="diary-item rounded-card px-4 py-3.5 mb-1.5 cursor-default">
-        <div class="flex items-start justify-between mb-1.5">
-          <h3 class="text-sm font-medium text-ink-700 leading-relaxed">焦虑的时候，写下来就好了</h3>
-        </div>
-        <p class="text-xs text-ink-400 leading-relaxed mb-2 line-clamp-2">
-          最近有些莫名的焦虑感，不知道在担心什么。打开日记本写了几段之后，那种紧绷的感觉慢慢松开了……
-        </p>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-ink-400">2026-07-18</span>
-          <span class="text-xs px-2 py-0.5 rounded-full tag-purple">思考</span>
-        </div>
-      </div>
-
-    </nav>
+    <nav class="flex-1 overflow-y-auto diary-list px-4 pb-4" id="diaryList"></nav>
   </aside>
 
   <!-- ─── 右侧：日记编辑区 (70%) ─── -->
   <main class="flex-1 flex flex-col h-full overflow-hidden bg-warm-50/40">
 
-    <!-- 编辑区滚动容器 -->
     <div class="flex-1 overflow-y-auto editor-scroll">
       <div class="max-w-3xl mx-auto px-10 py-8">
 
-        <!-- 编辑卡片 -->
         <div class="bg-white rounded-card shadow-card p-8">
 
-          <!-- 日期 -->
-          <div class="text-xs text-ink-400 mb-5 tracking-wide">
-            2026 年 7 月 30 日 · 星期四
+          <!-- 草稿恢复提示条 -->
+          <div class="draft-banner hidden" id="draftBanner">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>检测到未保存的草稿</span>
+            <span class="draft-time" id="draftTime"></span>
+            <button class="draft-link" id="draftRestore">恢复</button>
+            <button class="draft-link danger" id="draftDiscard">丢弃</button>
+          </div>
+
+          <!-- 日期选择器 -->
+          <div class="flex items-center gap-2 mb-5">
+            <input type="date" id="editorDate" class="date-input">
+            <span class="text-xs text-ink-400" id="editorWeekday"></span>
           </div>
 
           <!-- 标题输入 -->
           <input
             type="text"
+            id="editorTitle"
             class="input-clean text-xl font-semibold text-ink-800 mb-4 placeholder:text-ink-300"
             placeholder="给这篇日记起个标题…"
-            value="今日小记 — 窗外的梧桐开始落叶了"
           >
 
-          <!-- 分类标签选择（静态占位） -->
+          <!-- 分类下拉 -->
           <div class="flex items-center gap-2 mb-6">
             <span class="text-xs text-ink-400">分类：</span>
-            <span class="text-xs px-3 py-1 rounded-full tag-green cursor-default">日常</span>
-            <span class="text-xs px-3 py-1 rounded-full text-ink-400 bg-gray-100 cursor-default">读书</span>
-            <span class="text-xs px-3 py-1 rounded-full text-ink-400 bg-gray-100 cursor-default">工作</span>
-            <span class="text-xs px-3 py-1 rounded-full text-ink-400 bg-gray-100 cursor-default">户外</span>
-            <span class="text-xs px-3 py-1 rounded-full text-ink-400 bg-gray-100 cursor-default">思考</span>
+            <select id="editorCategory" class="category-select">
+              <option value="">选择分类…</option>
+              <option value="工作思考">工作思考</option>
+              <option value="生活感悟">生活感悟</option>
+              <option value="学习笔记">学习笔记</option>
+              <option value="情绪记录">情绪记录</option>
+            </select>
           </div>
 
           <!-- 格式化工具栏（静态占位） -->
@@ -371,30 +503,21 @@
 
           <!-- 正文编辑区 -->
           <textarea
+            id="editorContent"
             class="input-clean prose-area w-full min-h-[420px] placeholder:text-ink-300"
             placeholder="开始写点什么…"
-          >早上起来发现窗外的梧桐树叶已经黄了大半，风一吹就簌簌地往下落。秋天真的来了。
-
-翻开日历才发现，距离立秋也才过了一周。今年的夏天好像特别短暂，还没来得及去一趟海边，蝉鸣声就稀疏了。
-
-泡了杯热茶，坐在窗前发了会儿呆。最近工作上节奏很快，已经很久没有这样安静地坐着了。想起昨天读的那本书里说：「一个人能安静地独处，是一种了不起的能力。」
-
-也许我该多给自己安排一些这样的时刻。不需要产出什么，也不需要达成什么目标，只是单纯地存在着，感受着当下的温度、光线、风声。
-
-下午打算去趟菜市场，买点排骨回来炖汤。天凉了，适合喝热汤。</textarea>
+          ></textarea>
 
         </div>
 
         <!-- 底部操作区 -->
         <div class="flex items-center justify-between mt-5 px-1">
-          <div class="text-xs text-ink-400">
-            最后保存：今天 10:32
-          </div>
+          <div class="text-xs text-ink-400" id="saveStatus"><span class="draft-dot hidden" id="draftDot"></span><span id="saveStatusText"></span></div>
           <div class="flex items-center gap-2">
-            <button class="btn btn-ghost px-4 py-2 text-sm" type="button">
+            <button class="btn btn-ghost px-4 py-2 text-sm" id="btnDraft" type="button">
               存为草稿
             </button>
-            <button class="btn btn-primary px-5 py-2 text-sm" type="button">
+            <button class="btn btn-primary px-5 py-2 text-sm" id="btnSave" type="button">
               保存日记
             </button>
           </div>
@@ -406,6 +529,498 @@
   </main>
 
 </div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- 删除确认对话框 -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-dialog">
+    <p>确定要删除这篇日记吗？<br>删除后无法恢复。</p>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost px-5 py-2" id="confirmCancel">取消</button>
+      <button class="btn px-5 py-2" style="background:#ef4444;color:#fff;border-radius:7px;font-size:13px;font-weight:500;border:none;cursor:pointer;font-family:inherit;" id="confirmOk">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   日记应用 — 增删改查逻辑
+   ═══════════════════════════════════════════════════════════════ */
+
+const STORAGE_KEY = 'diary_entries';
+const DRAFT_KEY   = 'diary_draft';
+const AUTO_DRAFT_DELAY = 10000;  // 10 秒无操作后自动保存草稿
+
+const CATEGORIES = ['工作思考', '生活感悟', '学习笔记', '情绪记录'];
+
+const CATEGORY_COLOR = {
+  '工作思考': 'tag-blue',
+  '生活感悟': 'tag-green',
+  '学习笔记': 'tag-purple',
+  '情绪记录': 'tag-orange',
+};
+
+const WEEKDAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
+
+/* ── 种子数据 ── */
+const SEED_DATA = [
+  {
+    date: '2026-07-30',
+    category: '生活感悟',
+    title: '窗外的梧桐开始落叶了',
+    content: '早上起来发现窗外的梧桐树叶已经黄了大半，风一吹就簌簌地往下落。秋天真的来了。\n\n翻开日历才发现，距离立秋也才过了一周。今年的夏天好像特别短暂，还没来得及去一趟海边，蝉鸣声就稀疏了。\n\n泡了杯热茶，坐在窗前发了会儿呆。最近工作上节奏很快，已经很久没有这样安静地坐着了。',
+  },
+  {
+    date: '2026-07-28',
+    category: '学习笔记',
+    title: '读完《悉达多》的一些碎片想法',
+    content: '第二次读黑塞的《悉达多》，跟二十岁时的感受完全不同。那时看到的是流浪与自由，现在读到的是放下与回归。\n\n悉达多最终在河边成为摆渡人，这个结局年轻时觉得是妥协，现在看来却是一种更高的智慧——不是放弃探索，而是找到了与世界的相处之道。',
+  },
+  {
+    date: '2026-07-25',
+    category: '生活感悟',
+    title: '周末徒步 — 京西古道',
+    content: '走了将近 15 公里，从韭园到潭柘寺。京西古道上的马蹄窝还清晰可见，踩上去能感受到几百年前的商旅往来。\n\n路上遇到一位老人，说这条路他走了六十多年。小时候跟着父亲赶驴送货，现在每周来走一次，当作锻炼。他说：「路还是这条路，人已经不是那个人了。」',
+  },
+  {
+    date: '2026-07-22',
+    category: '工作思考',
+    title: '关于新项目的技术选型思考',
+    content: '花了整个下午对比了几个方案。最终还是决定用最稳妥的那一套，不需要在项目初期引入太多复杂性。\n\n简单的东西不一定不够好，复杂的东西不一定更强大。重要的是选择适合当前阶段的方案，而不是追求最新的技术。',
+  },
+  {
+    date: '2026-07-20',
+    category: '生活感悟',
+    title: '学着做红烧肉，意外地成功',
+    content: '第一次尝试做红烧肉，跟着视频一步一步来。炒糖色的时候差点糊了，但最后成品意外地好吃。\n\n做饭这件事，很多时候不是技术的问题，是耐心的问题。愿意花时间等一块肉慢慢炖烂，它就会用最好的味道回报你。',
+  },
+  {
+    date: '2026-07-18',
+    category: '情绪记录',
+    title: '焦虑的时候，写下来就好了',
+    content: '最近有些莫名的焦虑感，不知道在担心什么。打开日记本写了几段之后，那种紧绷的感觉慢慢松开了。\n\n焦虑往往是因为脑子里同时飘着太多模糊的念头。把它们一个个写下来，就变得具体了，具体的东西就可以一个一个去面对。',
+  },
+];
+
+/* ── 状态 ── */
+let entries = [];
+let currentId = null;   // null = 新建模式
+let draftTimer = null;  // 自动草稿计时器
+
+/* ── DOM 引用 ── */
+const $list    = document.getElementById('diaryList');
+const $date    = document.getElementById('editorDate');
+const $weekday = document.getElementById('editorWeekday');
+const $title   = document.getElementById('editorTitle');
+const $cat     = document.getElementById('editorCategory');
+const $content = document.getElementById('editorContent');
+const $status  = document.getElementById('saveStatus');
+const $toast   = document.getElementById('toast');
+const $overlay = document.getElementById('confirmOverlay');
+const $draftBanner  = document.getElementById('draftBanner');
+const $draftTime    = document.getElementById('draftTime');
+const $draftDot     = document.getElementById('draftDot');
+const $saveStatusText = document.getElementById('saveStatusText');
+
+let pendingDeleteId = null;
+
+/* ═══════════════════════════════════════════════════════════════
+   localStorage 读写
+   ═══════════════════════════════════════════════════════════════ */
+
+function loadFromStorage() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    try {
+      entries = JSON.parse(raw);
+    } catch (e) {
+      entries = [];
+    }
+  }
+  // 首次使用：写入种子数据
+  if (!raw || entries.length === 0) {
+    const now = new Date().toISOString();
+    entries = SEED_DATA.map((s, i) => ({
+      id:        crypto.randomUUID(),
+      date:      s.date,
+      category:  s.category,
+      title:     s.title,
+      content:   s.content,
+      createdAt: now,
+      updatedAt: now,
+      summary:   { aiTitle: '', aiTags: [], aiReflection: '' },
+    }));
+    saveToStorage();
+  }
+}
+
+function saveToStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   自动草稿
+   ═══════════════════════════════════════════════════════════════ */
+
+function saveDraft() {
+  const data = readFromEditor();
+  const hasContent = data.title || data.content || data.category;
+  if (!hasContent) {
+    clearDraft();
+    return;
+  }
+  const draft = {
+    date:      data.date,
+    category:  data.category,
+    title:     data.title,
+    content:   data.content,
+    currentId: currentId,
+    savedAt:   new Date().toISOString(),
+  };
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  // 闪烁绿点表示已保存
+  $draftDot.classList.remove('hidden');
+  $draftDot.classList.add('saved');
+  setTimeout(() => $draftDot.classList.remove('saved'), 1200);
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
+  $draftDot.classList.add('hidden');
+  $draftDot.classList.remove('saved');
+  hideDraftBanner();
+}
+
+function loadDraft() {
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
+function hasDraft() {
+  return loadDraft() !== null;
+}
+
+function scheduleAutoDraft() {
+  // 显示橙点表示"有未保存变更"
+  $draftDot.classList.remove('hidden', 'saved');
+  // 重置计时器
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraft, AUTO_DRAFT_DELAY);
+}
+
+function showDraftBanner(draft) {
+  if (!draft) return;
+  $draftTime.textContent = formatDateTime(draft.savedAt);
+  $draftBanner.classList.remove('hidden');
+}
+
+function hideDraftBanner() {
+  $draftBanner.classList.add('hidden');
+}
+
+function restoreDraft() {
+  const draft = loadDraft();
+  if (!draft) return;
+  currentId       = draft.currentId;
+  $date.value     = draft.date;
+  updateWeekday(draft.date);
+  $title.value    = draft.title;
+  $cat.value      = draft.category;
+  $content.value  = draft.content;
+  $saveStatusText.textContent = '';
+  hideDraftBanner();
+  $draftDot.classList.remove('hidden', 'saved');
+  renderList();
+  showToast('草稿已恢复');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   渲染列表
+   ═══════════════════════════════════════════════════════════════ */
+
+function renderList() {
+  // 按日期倒序
+  const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date));
+
+  if (sorted.length === 0) {
+    $list.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-20 text-ink-400">
+        <svg class="w-10 h-10 mb-3 text-ink-300" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path>
+        </svg>
+        <p class="text-sm">还没有日记</p>
+        <p class="text-xs mt-1 text-ink-400">点击右上角「+ 新建日记」开始写第一篇</p>
+      </div>`;
+    return;
+  }
+
+  const maxLen = 80;
+  $list.innerHTML = sorted.map(e => {
+    const isActive = e.id === currentId;
+    const preview  = (e.content || '').replace(/\n/g, ' ').slice(0, maxLen);
+    const tagClass = CATEGORY_COLOR[e.category] || '';
+
+    return `
+      <div class="diary-item ${isActive ? 'active' : ''} rounded-card px-4 py-3.5 mb-1.5"
+           data-id="${e.id}" onclick="selectEntry('${e.id}')">
+        <button class="delete-btn" title="删除" onclick="event.stopPropagation(); askDelete('${e.id}')">&times;</button>
+        <h3 class="text-sm font-medium leading-relaxed pr-6 ${isActive ? 'text-ink-800' : 'text-ink-700'}">
+          ${escHtml(e.title || '无标题')}
+        </h3>
+        <p class="text-xs text-ink-400 leading-relaxed mt-1 mb-2 line-clamp-2">${escHtml(preview)}</p>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-ink-400">${e.date}</span>
+          ${e.category ? `<span class="text-xs px-2 py-0.5 rounded-full ${tagClass}">${escHtml(e.category)}</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   编辑区操作
+   ═══════════════════════════════════════════════════════════════ */
+
+function selectEntry(id) {
+  const entry = entries.find(e => e.id === id);
+  if (!entry) return;
+  currentId = id;
+  loadIntoEditor(entry);
+  renderList();
+}
+
+function newEntry() {
+  currentId = null;
+  const today = toDateStr(new Date());
+  $date.value    = today;
+  updateWeekday(today);
+  $title.value   = '';
+  $cat.value     = '';
+  $content.value = '';
+  $saveStatusText.textContent = '';
+  clearDraft();
+  hideDraftBanner();
+  renderList();
+}
+
+function loadIntoEditor(entry) {
+  $date.value    = entry.date;
+  updateWeekday(entry.date);
+  $title.value   = entry.title;
+  $cat.value     = entry.category;
+  $content.value = entry.content || '';
+  if (entry.updatedAt) {
+    $saveStatusText.textContent = '最后保存：' + formatDateTime(entry.updatedAt);
+  } else {
+    $saveStatusText.textContent = '';
+  }
+}
+
+function readFromEditor() {
+  return {
+    date:     $date.value,
+    category: $cat.value,
+    title:    $title.value.trim(),
+    content:  $content.value,
+  };
+}
+
+function saveEntry() {
+  const data = readFromEditor();
+
+  if (!data.title && !data.content) {
+    showToast('请至少填写标题或正文内容');
+    return;
+  }
+
+  const now = new Date().toISOString();
+
+  if (currentId) {
+    // 更新已有日记
+    const entry = entries.find(e => e.id === currentId);
+    if (!entry) return;
+    entry.date      = data.date;
+    entry.category  = data.category;
+    entry.title     = data.title;
+    entry.content   = data.content;
+    entry.updatedAt = now;
+    $saveStatusText.textContent = '最后保存：' + formatDateTime(now);
+    showToast('日记已保存');
+  } else {
+    // 新建日记
+    const newEntry = {
+      id:        crypto.randomUUID(),
+      date:      data.date,
+      category:  data.category,
+      title:     data.title,
+      content:   data.content,
+      createdAt: now,
+      updatedAt: now,
+      summary:   { aiTitle: '', aiTags: [], aiReflection: '' },
+    };
+    entries.push(newEntry);
+    currentId = newEntry.id;
+    $saveStatusText.textContent = '最后保存：' + formatDateTime(now);
+    showToast('日记已创建');
+  }
+
+  saveToStorage();
+  clearDraft();
+  renderList();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   删除操作
+   ═══════════════════════════════════════════════════════════════ */
+
+function askDelete(id) {
+  pendingDeleteId = id;
+  $overlay.classList.add('show');
+}
+
+function confirmDelete() {
+  if (!pendingDeleteId) return;
+  const id = pendingDeleteId;
+  pendingDeleteId = null;
+  $overlay.classList.remove('show');
+
+  entries = entries.filter(e => e.id !== id);
+  if (currentId === id) {
+    newEntry();
+  }
+  saveToStorage();
+  renderList();
+  showToast('日记已删除');
+}
+
+function cancelDelete() {
+  pendingDeleteId = null;
+  $overlay.classList.remove('show');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   日期工具
+   ═══════════════════════════════════════════════════════════════ */
+
+function toDateStr(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function updateWeekday(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) {
+    $weekday.textContent = '';
+    return;
+  }
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const wd = WEEKDAY_NAMES[d.getDay()];
+  $weekday.textContent = `${y} 年 ${m} 月 ${day} 日 · 星期${wd}`;
+}
+
+function formatDateTime(isoStr) {
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return '';
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const h = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${m}月${day}日 ${h}:${mi}`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Toast
+   ═══════════════════════════════════════════════════════════════ */
+
+let toastTimer;
+function showToast(msg) {
+  clearTimeout(toastTimer);
+  $toast.textContent = msg;
+  $toast.classList.add('show');
+  toastTimer = setTimeout(() => $toast.classList.remove('show'), 1800);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   事件绑定 & 初始化
+   ═══════════════════════════════════════════════════════════════ */
+
+document.getElementById('btnNew').addEventListener('click', newEntry);
+
+document.getElementById('btnSave').addEventListener('click', saveEntry);
+
+// Ctrl+S 保存
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    saveEntry();
+  }
+});
+
+// 日期变更时更新星期显示 + 触发自动草稿
+$date.addEventListener('change', function() {
+  updateWeekday(this.value);
+  scheduleAutoDraft();
+});
+
+// ── 自动草稿：输入事件 ──
+[$title, $cat, $content].forEach(function(el) {
+  el.addEventListener('input', scheduleAutoDraft);
+});
+
+// ── 失焦立即保存草稿 ──
+[$title, $cat, $content, $date].forEach(function(el) {
+  el.addEventListener('blur', function() {
+    clearTimeout(draftTimer);
+    saveDraft();
+  });
+});
+
+// ── 草稿恢复 / 丢弃 ──
+document.getElementById('draftRestore').addEventListener('click', restoreDraft);
+document.getElementById('draftDiscard').addEventListener('click', function() {
+  clearDraft();
+  showToast('草稿已丢弃');
+});
+
+// 确认对话框按钮
+document.getElementById('confirmOk').addEventListener('click', confirmDelete);
+document.getElementById('confirmCancel').addEventListener('click', cancelDelete);
+$overlay.addEventListener('click', function(e) {
+  if (e.target === $overlay) cancelDelete();
+});
+
+// 草稿按钮（当前与保存行为一致）
+document.getElementById('btnDraft').addEventListener('click', saveEntry);
+
+/* ── 启动 ── */
+loadFromStorage();
+renderList();
+
+// 检查是否有未保存的草稿
+const savedDraft = loadDraft();
+if (savedDraft) {
+  showDraftBanner(savedDraft);
+  // 不自动恢复，由用户决定是否点击「恢复」
+  // 编辑区保持干净状态
+  newEntry();
+} else {
+  newEntry();
+}
+</script>
 
 </body>
 </html>
