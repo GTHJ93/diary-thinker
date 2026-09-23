@@ -1,0 +1,1002 @@
+diff --git a/index2.html b/index2.html
+--- a/index2.html
++++ b/index2.html
+@@ -1262,27 +1262,6 @@
+             </select>
+           </div>
+ 
+-          <!-- 格式化工具栏（静态占位） -->
+-          <div class="flex items-center gap-0.5 mb-5 pb-4 border-b border-gray-100">
+-            <button class="toolbar-btn font-bold" type="button">B</button>
+-            <button class="toolbar-btn italic" type="button" style="font-style:italic">I</button>
+-            <button class="toolbar-btn underline" type="button" style="text-decoration:underline">U</button>
+-            <span class="w-px h-5 bg-gray-200 mx-1.5"></span>
+-            <button class="toolbar-btn font-semibold" type="button">H1</button>
+-            <button class="toolbar-btn font-medium" type="button">H2</button>
+-            <span class="w-px h-5 bg-gray-200 mx-1.5"></span>
+-            <button class="toolbar-btn" type="button">
+-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7"></path>
+-              </svg>
+-            </button>
+-            <button class="toolbar-btn" type="button">
+-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+-                <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+-              </svg>
+-            </button>
+-          </div>
+-
+           <!-- 正文编辑区 -->
+           <textarea
+             id="editorContent"
+@@ -1322,7 +1301,19 @@
+               <div id="aiActionItems"></div>
+             </div>
+           </div>
+-          <div class="flex items-center justify-end mt-4 pt-3 border-t border-gray-100">
++          <div id="aiStaleNotice" class="hidden text-xs text-amber-700 mt-3">日记正文已修改，已有提炼可能过时，请重新分析。</div>
++          <div id="aiEditForm" class="hidden mt-4 space-y-2">
++            <label class="text-xs text-ink-500 block">核心观点（每行一条）<textarea id="aiEditCore" class="settings-input w-full" rows="4"></textarea></label>
++            <label class="text-xs text-ink-500 block">关键词（顿号或逗号分隔）<input id="aiEditKeywords" class="settings-input w-full" type="text"></label>
++            <label class="text-xs text-ink-500 block">情绪倾向<input id="aiEditSentiment" class="settings-input w-full" type="text"></label>
++            <label class="text-xs text-ink-500 block">行动项（每行一条）<textarea id="aiEditActions" class="settings-input w-full" rows="3"></textarea></label>
++            <div class="flex gap-2 justify-end">
++              <button class="btn btn-ghost px-3 py-1" id="btnCancelAiEdit" type="button">取消修改</button>
++              <button class="btn btn-primary px-3 py-1" id="btnApplyAiEdit" type="button">应用修改</button>
++            </div>
++          </div>
++          <div class="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-gray-100">
++            <button class="btn btn-ghost px-3 py-1" id="btnEditAi" type="button">编辑结果</button>
+             <button class="btn-ai" id="btnSaveAi" type="button">保存到日记</button>
+           </div>
+ 
+@@ -1415,11 +1406,10 @@
+         <div class="spinner hidden" id="fwSpinner" style="margin:20px auto"></div>
+       </div>
+ 
+-      <!-- 复制按钮 -->
+-      <div class="flex justify-end hidden" id="fwCopyBar">
+-        <button class="btn btn-ghost px-4 py-2 text-sm" id="btnCopyMd" type="button">
+-          📋 复制为 Markdown
+-        </button>
++      <!-- 框架导出 -->
++      <div class="flex justify-end gap-2 hidden" id="fwCopyBar">
++        <button class="btn btn-ghost px-4 py-2 text-sm" id="btnCopyMd" type="button">📋 复制为 Markdown</button>
++        <button class="btn btn-ghost px-4 py-2 text-sm" id="btnDownloadMd" type="button">⬇️ 下载 .md</button>
+       </div>
+ 
+     </div>
+@@ -1543,6 +1533,14 @@
+       <label for="settingsModel">模型</label>
+       <select id="settingsModel" class="category-select" style="width:100%"></select>
+     </div>
++    <div class="settings-field">
++      <label for="newCategoryInput">自定义分类</label>
++      <div class="flex gap-2">
++        <input type="text" id="newCategoryInput" class="settings-input flex-1" placeholder="输入新分类名称" maxlength="20">
++        <button class="btn btn-ghost px-4 py-2" id="btnAddCategory" type="button">添加</button>
++      </div>
++      <div id="categoryList" class="mt-2" style="font-size:12px;color:#6b7280"></div>
++    </div>
+     <hr style="border:none;border-top:1px solid #f3f0eb;margin:20px 0 16px">
+     <div class="settings-field">
+       <label>数据管理</label>
+@@ -1676,14 +1674,15 @@
+ const DRAFT_KEY     = 'diary_draft';
+ const SETTINGS_KEY  = 'diary_settings';
+ const MAINLINES_KEY = 'goal_mainlines';
+-const AUTO_DRAFT_DELAY = 10000;  // 10 秒无操作后自动保存草稿
++const CATEGORIES_KEY = 'diary_categories';
++const AUTO_DRAFT_DELAY = 5000;  // 5 秒无操作后自动保存草稿
+ 
+ /** API 厂商配置 */
+ const AI_VENDORS = {
+   deepseek: {
+     label:  'DeepSeek',
+     apiUrl: 'https://api.deepseek.com',
+-    models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
++    models: ['deepseek-flash', 'deepseek-v4-pro'],
+   },
+   zhipu: {
+     label:  '智谱GLM',
+@@ -1787,7 +1786,8 @@
+ - 建议2：
+ （2-3条即可，不是命令而是启发式建议）`;
+ 
+-const CATEGORIES = ['工作思考', '生活感悟', '学习笔记', '情绪记录'];
++const DEFAULT_CATEGORIES = ['工作思考', '生活感悟', '学习笔记', '情绪记录'];
++let categories = [...DEFAULT_CATEGORIES];
+ 
+ const CATEGORY_COLOR = {
+   '工作思考': 'tag-blue',
+@@ -1798,46 +1798,6 @@
+ 
+ const WEEKDAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
+ 
+-/* ── 种子数据 ── */
+-const SEED_DATA = [
+-  {
+-    date: '2026-07-30',
+-    category: '生活感悟',
+-    title: '窗外的梧桐开始落叶了',
+-    content: '早上起来发现窗外的梧桐树叶已经黄了大半，风一吹就簌簌地往下落。秋天真的来了。\n\n翻开日历才发现，距离立秋也才过了一周。今年的夏天好像特别短暂，还没来得及去一趟海边，蝉鸣声就稀疏了。\n\n泡了杯热茶，坐在窗前发了会儿呆。最近工作上节奏很快，已经很久没有这样安静地坐着了。',
+-  },
+-  {
+-    date: '2026-07-28',
+-    category: '学习笔记',
+-    title: '读完《悉达多》的一些碎片想法',
+-    content: '第二次读黑塞的《悉达多》，跟二十岁时的感受完全不同。那时看到的是流浪与自由，现在读到的是放下与回归。\n\n悉达多最终在河边成为摆渡人，这个结局年轻时觉得是妥协，现在看来却是一种更高的智慧——不是放弃探索，而是找到了与世界的相处之道。',
+-  },
+-  {
+-    date: '2026-07-25',
+-    category: '生活感悟',
+-    title: '周末徒步 — 京西古道',
+-    content: '走了将近 15 公里，从韭园到潭柘寺。京西古道上的马蹄窝还清晰可见，踩上去能感受到几百年前的商旅往来。\n\n路上遇到一位老人，说这条路他走了六十多年。小时候跟着父亲赶驴送货，现在每周来走一次，当作锻炼。他说：「路还是这条路，人已经不是那个人了。」',
+-  },
+-  {
+-    date: '2026-07-22',
+-    category: '工作思考',
+-    title: '关于新项目的技术选型思考',
+-    content: '花了整个下午对比了几个方案。最终还是决定用最稳妥的那一套，不需要在项目初期引入太多复杂性。\n\n简单的东西不一定不够好，复杂的东西不一定更强大。重要的是选择适合当前阶段的方案，而不是追求最新的技术。',
+-  },
+-  {
+-    date: '2026-07-20',
+-    category: '生活感悟',
+-    title: '学着做红烧肉，意外地成功',
+-    content: '第一次尝试做红烧肉，跟着视频一步一步来。炒糖色的时候差点糊了，但最后成品意外地好吃。\n\n做饭这件事，很多时候不是技术的问题，是耐心的问题。愿意花时间等一块肉慢慢炖烂，它就会用最好的味道回报你。',
+-  },
+-  {
+-    date: '2026-07-18',
+-    category: '情绪记录',
+-    title: '焦虑的时候，写下来就好了',
+-    content: '最近有些莫名的焦虑感，不知道在担心什么。打开日记本写了几段之后，那种紧绷的感觉慢慢松开了。\n\n焦虑往往是因为脑子里同时飘着太多模糊的念头。把它们一个个写下来，就变得具体了，具体的东西就可以一个一个去面对。',
+-  },
+-];
+-
+ /* ── 状态 ── */
+ let entries = [];
+ let entryMap = new Map();  // id → entry O(1) 查找
+@@ -1960,40 +1920,116 @@
+ 
+ let pendingDeleteId = null;
+ 
++function loadCategories() {
++  let saved = [];
++  try {
++    const raw = localStorage.getItem(CATEGORIES_KEY);
++    if (raw !== null) {
++      const parsed = JSON.parse(raw);
++      if (Array.isArray(parsed)) saved = parsed;
++    }
++  } catch (e) {
++    showToast('分类设置读取失败，已保留日记中的分类');
++  }
++  categories = [...new Set([...DEFAULT_CATEGORIES, ...saved, ...entries.map(e => e && e.category)]
++    .filter(c => typeof c === 'string' && c.trim()).map(c => c.trim()))];
++  renderCategoryOptions();
++}
++
++function saveCategories() {
++  localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
++}
++
++function renderCategoryOptions() {
++  const configs = [
++    [$cat, '选择分类…'],
++    [$filterCat, '📂 全部分类'],
++    [$fwCategory, '全部分类'],
++  ];
++  for (const [select, placeholder] of configs) {
++    const selected = select.value;
++    select.replaceChildren(new Option(placeholder, ''), ...categories.map(c => new Option(c, c)));
++    select.value = categories.includes(selected) ? selected : '';
++  }
++  renderCategoryList();
++}
++
++function renderCategoryList() {
++  const list = document.getElementById('categoryList');
++  list.replaceChildren();
++  for (const category of categories) {
++    const row = document.createElement('div');
++    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:3px 0';
++    const label = document.createElement('span');
++    label.textContent = category;
++    row.appendChild(label);
++    if (!DEFAULT_CATEGORIES.includes(category)) {
++      const button = document.createElement('button');
++      button.type = 'button';
++      button.className = 'btn btn-ghost px-2 py-1';
++      button.textContent = '删除';
++      button.addEventListener('click', () => removeCategory(category));
++      row.appendChild(button);
++    }
++    list.appendChild(row);
++  }
++}
++
++function addCategory() {
++  const input = document.getElementById('newCategoryInput');
++  const category = input.value.trim();
++  if (!category) { showToast('请输入分类名称'); return; }
++  if (categories.includes(category)) { showToast('分类已存在'); return; }
++  categories.push(category);
++  saveCategories();
++  renderCategoryOptions();
++  input.value = '';
++  showToast('分类已添加');
++}
++
++function removeCategory(category) {
++  if (DEFAULT_CATEGORIES.includes(category)) return;
++  if (entries.some(e => e.category === category)) {
++    showToast('该分类已有日记，无法删除');
++    return;
++  }
++  categories = categories.filter(c => c !== category);
++  saveCategories();
++  renderCategoryOptions();
++  filterCategory = $filterCat.value;
++  renderList();
++  showToast('分类已删除');
++}
++
+ /* ═══════════════════════════════════════════════════════════════
+    localStorage 读写
+    ═══════════════════════════════════════════════════════════════ */
+ 
+ function loadFromStorage() {
+   const raw = localStorage.getItem(STORAGE_KEY);
+-  if (raw) {
++  if (raw === null) {
++    entries = [];
++  } else {
+     try {
+-      entries = JSON.parse(raw);
++      const parsed = JSON.parse(raw);
++      if (!Array.isArray(parsed)) throw new Error('日记数据不是数组');
++      entries = parsed;
+     } catch (e) {
+       entries = [];
++      showToast('日记数据读取失败，请先保留浏览器原始数据以便排查');
+     }
+   }
+-  // 首次使用：写入种子数据
+-  if (!raw || entries.length === 0) {
+-    const now = new Date().toISOString();
+-    entries = SEED_DATA.map((s, i) => ({
+-      id:        crypto.randomUUID(),
+-      date:      s.date,
+-      category:  s.category,
+-      title:     s.title,
+-      content:   s.content,
+-      createdAt: now,
+-      updatedAt: now,
+-      summary:   { aiTitle: '', aiTags: [], aiReflection: '' },
+-    }));
+-    saveToStorage();
+-  }
+   rebuildEntryMap();
+ }
+ 
+ function saveToStorage() {
+-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+-  rebuildEntryMap();
++  try {
++    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
++    rebuildEntryMap();
++  } catch (e) {
++    showToast('保存失败：浏览器存储不可用或空间已满，请导出备份');
++    throw e;
++  }
+ }
+ 
+ /* ═══════════════════════════════════════════════════════════════
+@@ -2187,7 +2223,7 @@
+   }
+ }
+ 
+-function newEntry() {
++function newEntry(options = {}) {
+   switchView('editor'); // 确保切回编辑视图
+   currentId = null;
+   const today = toDateStr(new Date());
+@@ -2197,9 +2233,10 @@
+   $cat.value     = '';
+   $content.value = '';
+   $saveStatusText.textContent = '';
+-  clearDraft();
++  if (!options.preserveDraft) clearDraft();
+   hideDraftBanner();
+   hideAiCard();
++  window._pendingSuggestion = null;
+   updateTitlePlaceholder();
+   renderList();
+ }
+@@ -2226,6 +2263,7 @@
+     $aiStructured.classList.remove('hidden');
+     $aiCard.classList.remove('hidden');
+     $btnSaveAi.disabled = false;
++    if (entry.summary.stale) document.getElementById('aiStaleNotice').classList.remove('hidden');
+   }
+   // 恢复关联建议暂存
+   window._pendingSuggestion = (entry.summary && entry.summary.suggestion) ? entry.summary.suggestion : null;
+@@ -2250,18 +2288,26 @@
+   }
+ 
+   const now = new Date().toISOString();
++  let saveMessage;
+ 
+   if (currentId) {
+     // 更新已有日记
+     const entry = entryMap.get( currentId);
+     if (!entry) return;
++    if ((entry.title !== data.title || entry.content !== data.content) && entry.summary &&
++        (entry.summary.coreIdeas || entry.summary.keywords?.length || entry.summary.sentiment || entry.summary.actionItems?.length)) {
++      entry.summary.stale = true;
++      if (entry.summary.suggestion?.confirmed === false) entry.summary.suggestion = null;
++      window._pendingSuggestion = null;
++      document.getElementById('aiStaleNotice').classList.remove('hidden');
++    }
+     entry.date      = data.date;
+     entry.category  = data.category;
+     entry.title     = data.title;
+     entry.content   = data.content;
+     entry.updatedAt = now;
+     $saveStatusText.textContent = '最后保存：' + formatDateTime(now);
+-    showToast('日记已保存');
++    saveMessage = '日记已保存';
+   } else {
+     // 新建日记
+     const newEntry = {
+@@ -2277,19 +2323,33 @@
+     entries.push(newEntry);
+     currentId = newEntry.id;
+     $saveStatusText.textContent = '最后保存：' + formatDateTime(now);
+-    showToast('日记已创建');
++    saveMessage = '日记已创建';
+   }
+ 
+   saveToStorage();
+   clearDraft();
+   renderList();
++  updateBadge();
++  showToast(saveMessage);
+ }
+ 
+ /* ═══════════════════════════════════════════════════════════════
+    删除操作
+    ═══════════════════════════════════════════════════════════════ */
+ 
++function resetConfirmDialog() {
++  const ok = document.getElementById('confirmOk');
++  const cancel = document.getElementById('confirmCancel');
++  ok.onclick = confirmDelete;
++  cancel.onclick = cancelDelete;
++  ok.style.display = '';
++  ok.textContent = '确认删除';
++  cancel.textContent = '取消';
++  document.querySelector('#confirmOverlay p').innerHTML = '确定要删除这篇日记吗？<br>删除后无法恢复。';
++}
++
+ function askDelete(id) {
++  resetConfirmDialog();
+   pendingDeleteId = id;
+   $overlay.classList.add('show');
+ }
+@@ -2333,6 +2393,7 @@
+ function cancelDelete() {
+   pendingDeleteId = null;
+   $overlay.classList.remove('show');
++  resetConfirmDialog();
+ }
+ 
+ /* ═══════════════════════════════════════════════════════════════
+@@ -2376,7 +2437,10 @@
+ function loadSettings() {
+   const raw = localStorage.getItem(SETTINGS_KEY);
+   if (raw) {
+-    try { return JSON.parse(raw); } catch (e) { /* fall through */ }
++    try {
++      const parsed = JSON.parse(raw);
++      if (parsed && typeof parsed === 'object') return { ...DEFAULT_SETTINGS, ...parsed };
++    } catch (e) { /* fall through */ }
+   }
+   return { ...DEFAULT_SETTINGS };
+ }
+@@ -2403,6 +2467,7 @@
+ }
+ 
+ function openSettings() {
++  renderCategoryList();
+   const s = loadSettings();
+   $settingsVendor.value = s.vendor || 'deepseek';
+   $settingsApiKey.value = s.apiKey || '';
+@@ -2432,11 +2497,12 @@
+ /** 导出所有数据（不含 API 配置） */
+ function exportData() {
+   const payload = {
+-    version: 1,
++    version: 2,
+     exportedAt: new Date().toISOString(),
+     data: {
+       diary_entries: entries,
+       goal_mainlines: mainlines,
++      diary_categories: categories,
+     }
+   };
+   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+@@ -2455,7 +2521,7 @@
+ function importData(file) {
+   const reader = new FileReader();
+   reader.onload = function(e) {
+-    let diaryEntries, goalMainlines;
++    let diaryEntries, goalMainlines, importedCategories;
+     try {
+       const raw = JSON.parse(e.target.result);
+ 
+@@ -2463,11 +2529,13 @@
+       if (raw && raw.data) {
+         diaryEntries  = raw.data.diary_entries;
+         goalMainlines = raw.data.goal_mainlines;
++        importedCategories = raw.data.diary_categories;
+       }
+       // 兼容旧格式 { entries, goals }
+       else if (raw && raw.entries) {
+         diaryEntries = raw.entries;
+         goalMainlines = raw.goals;
++        importedCategories = raw.categories;
+       }
+       // 兼容纯日记数组
+       else if (Array.isArray(raw)) {
+@@ -2478,17 +2546,30 @@
+         throw new Error('无法识别的数据格式');
+       }
+ 
+-      if (!Array.isArray(diaryEntries)) throw new Error('数据格式异常');
++      const safeId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
++      if (!Array.isArray(diaryEntries) || !diaryEntries.every(e => e && safeId(e.id) && /^\d{4}-\d{2}-\d{2}$/.test(e.date))) throw new Error('日记数据格式异常');
++      if (goalMainlines != null && (!Array.isArray(goalMainlines) || !goalMainlines.every(m =>
++        m && safeId(m.id) && Array.isArray(m.subGoals || []) && (m.subGoals || []).every(sg =>
++          sg && safeId(sg.id) && Array.isArray(sg.progressEntries || []) &&
++          (sg.progressEntries || []).every(p => p && safeId(p.id))
++        )
++      ))) throw new Error('主线数据格式异常');
++      if (importedCategories != null && !Array.isArray(importedCategories)) throw new Error('分类数据格式异常');
+     } catch (err) {
+       showToast('导入失败：' + err.message);
+       return;
+     }
+ 
+     // 二次确认
++    resetConfirmDialog();
+     document.querySelector('#confirmOverlay p').innerHTML = '将覆盖当前所有日记和思考主线数据，<br><span style="font-size:12px;color:#ef4444">此操作不可撤销。建议先导出备份。确认继续吗？</span>';
+     document.getElementById('confirmOk').onclick = function() {
+-      entries = diaryEntries.filter(e => e.id && e.date);
++      entries = diaryEntries;
+       saveToStorage();
++      categories = [...new Set([...DEFAULT_CATEGORIES, ...(importedCategories || []), ...entries.map(e => e && e.category)]
++        .filter(c => typeof c === 'string' && c.trim()).map(c => c.trim()))];
++      saveCategories();
++      renderCategoryOptions();
+       if (Array.isArray(goalMainlines)) {
+         mainlines = goalMainlines;
+         saveMainlines();
+@@ -2537,7 +2618,7 @@
+       'Authorization': `Bearer ${settings.apiKey}`,
+     },
+     body: JSON.stringify({
+-      model: model || settings.model || DEFAULT_MODEL,
++      model: model || settings.model || DEFAULT_SETTINGS.model,
+       messages: [
+         { role: 'system', content: systemPrompt },
+         { role: 'user',   content: userContent },
+@@ -2593,6 +2674,7 @@
+     }
+   }
+ 
++  if (!fullText.trim()) throw new Error('模型返回空结果，请重试');
+   return fullText;
+ }
+ 
+@@ -2646,6 +2728,28 @@
+   $aiActionItems.innerHTML = (data.actionItems || []).map(a => `<div class="ai-action-item">${escHtml(a)}</div>`).join('');
+ }
+ 
++function openAiEditor() {
++  document.getElementById('aiEditCore').value = $aiCoreIdeas.textContent.trim();
++  document.getElementById('aiEditKeywords').value = Array.from($aiKeywords.querySelectorAll('.ai-keyword-tag')).map(el => el.textContent.trim()).join('、');
++  document.getElementById('aiEditSentiment').value = $aiSentiment.textContent.trim();
++  document.getElementById('aiEditActions').value = Array.from($aiActionItems.querySelectorAll('.ai-action-item')).map(el => el.textContent.trim()).join('\n');
++  document.getElementById('aiEditForm').classList.remove('hidden');
++}
++
++function closeAiEditor() {
++  document.getElementById('aiEditForm').classList.add('hidden');
++}
++
++function applyAiEditor() {
++  displayAiResult({
++    coreIdeas: document.getElementById('aiEditCore').value.trim(),
++    keywords: document.getElementById('aiEditKeywords').value.split(/[、,，]/).map(s => s.trim()).filter(Boolean),
++    sentiment: document.getElementById('aiEditSentiment').value.trim(),
++    actionItems: document.getElementById('aiEditActions').value.split(/\n/).map(s => s.trim()).filter(Boolean),
++  });
++  closeAiEditor();
++}
++
+ async function runAiAnalysis() {
+   if (isAiLoading) return;
+ 
+@@ -2664,6 +2768,8 @@
+   }
+ 
+   // ── 进入加载态 ──
++  closeAiEditor();
++  document.getElementById('aiStaleNotice').classList.add('hidden');
+   isAiLoading = true;
+   $btnAi.disabled = true;
+   $btnAi.textContent = '⏳ 分析中…';
+@@ -2730,6 +2836,8 @@
+ }
+ 
+ function hideAiCard() {
++  closeAiEditor();
++  document.getElementById('aiStaleNotice').classList.add('hidden');
+   $aiCard.classList.add('hidden');
+   $aiStreaming.classList.add('hidden');
+   $aiStructured.classList.add('hidden');
+@@ -2737,6 +2845,7 @@
+ }
+ 
+ function saveAiToDiary() {
++  if (!document.getElementById('aiEditForm').classList.contains('hidden')) applyAiEditor();
+   const coreIdeas = $aiCoreIdeas.textContent.trim();
+   const keywords  = Array.from($aiKeywords.querySelectorAll('.ai-keyword-tag')).map(el => el.textContent.trim());
+   const sentiment = $aiSentiment.textContent.trim();
+@@ -2749,6 +2858,10 @@
+ 
+   const entry = entryMap.get( currentId);
+   if (!entry) return;
++  if (entry.title !== $title.value.trim() || entry.content !== $content.value) {
++    showToast('请先保存日记正文，再保存 AI 结果');
++    return;
++  }
+ 
+   entry.summary = {
+     aiTitle:      coreIdeas,
+@@ -2759,8 +2872,10 @@
+     sentiment:    sentiment,
+     actionItems:  actionItems,
+     suggestion:   window._pendingSuggestion || null, // 保留关联建议
++    stale:        false,
+   };
+   saveToStorage();
++  document.getElementById('aiStaleNotice').classList.add('hidden');
+   renderSuggestionBar();
+   updateBadge();
+   showToast('AI 分析已保存到日记');
+@@ -2899,150 +3014,91 @@
+  * @param {Object} entry 日记对象
+  * @returns {Promise<string>} 压缩后的文本
+  */
+-async function compressDiaryForFramework(entry) {
++function compressDiaryForFramework(entry) {
+   const dateLabel = entry.date || '';
+-  const catLabel  = entry.category || '';
+-
+-  // 已有核心观点 → 直接复用
+-  if (entry.summary && entry.summary.coreIdeas && entry.summary.coreIdeas.length > 0) {
++  const catLabel = entry.category || '';
++  if (entry.summary && !entry.summary.stale && entry.summary.coreIdeas) {
+     const kw = (entry.summary.keywords || []).join('、');
+-    return `【${dateLabel} ${catLabel}】核心观点：${entry.summary.coreIdeas}${kw ? '  关键词：' + kw : ''}`;
+-  }
+-
+-  // 无核心观点 → 自动调用单篇提炼
+-  try {
+-    const fullText = await callAIStream(
+-      buildDiaryUserPrompt(entry.title, entry.content),
+-      SINGLE_DIARY_SYSTEM_PROMPT,
+-      null
+-    );
+-    const parsed = parseDiaryAiResult(fullText);
+-
+-    if (!entry.summary) entry.summary = { aiTitle: '', aiTags: [], aiReflection: '' };
+-    entry.summary.coreIdeas   = parsed.coreIdeas || '';
+-    entry.summary.keywords    = parsed.keywords || [];
+-    entry.summary.sentiment   = parsed.sentiment || '';
+-    entry.summary.actionItems = parsed.actionItems || [];
+-    saveToStorage(); // 持久化提炼结果
+-
+-    const kw = (parsed.keywords || []).join('、');
+-    return `【${dateLabel} ${catLabel}】${entry.title || '无标题'}\n核心观点：${entry.summary.coreIdeas}${kw ? '\n关键词：' + kw : ''}`;
+-  } catch (e) {
+-    // 提炼失败 → 回退到原文压缩
+-    return compressRawContent(entry);
++    return `【${dateLabel} ${catLabel}】${entry.title || '无标题'}\n核心观点：${entry.summary.coreIdeas}${kw ? '\n关键词：' + kw : ''}`;
+   }
++  return compressRawContent(entry);
+ }
+ 
++const FRAMEWORK_BATCH_PROMPT = `你是思考资料整理助手。请把这一组日记笔记压缩为可供下一轮汇总的材料，按主题保留主要结论、反复出现的疑问、认知变化和日期证据。不要添加原文没有的事实，不要遗漏少数但重要的不同观点。用精简 Markdown 输出。`;
++
+ async function generateFramework() {
+   const filtered = getFrameworkFilteredEntries();
+-  if (filtered.length === 0) {
+-    showToast('筛选范围内没有日记');
+-    return;
+-  }
+-
++  if (filtered.length === 0) { showToast('筛选范围内没有日记'); return; }
+   const settings = loadSettings();
+-  if (!settings.apiKey) {
+-    showToast('请先在设置中配置 DeepSeek API Key');
+-    openSettings();
+-    return;
+-  }
+-
++  if (!settings.apiKey) { showToast('请先在设置中配置 API Key'); openSettings(); return; }
+   if (isAiLoading) return;
+ 
+-  // ── 进入加载态 ──
+   isAiLoading = true;
++  fwRawMarkdown = '';
+   $fwEmptyHint.classList.add('hidden');
+-  $fwMdContent.classList.add('hidden');
++  $fwMdContent.classList.remove('hidden');
+   $fwSpinner.classList.remove('hidden');
+   $fwCopyBar.classList.add('hidden');
+   document.getElementById('btnGenerate').disabled = true;
+   document.getElementById('btnGenerate').textContent = '⏳ 分析中…';
+-  $fwMdContent.innerHTML = '';
+ 
+-  const skippedDates = [];
+-
+   try {
+-    // ── 只取最新 20 篇 + 并发提炼（限流 3 + 超时 10s） ──
+-    const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
+-    const limited = sorted.slice(0, 20);
+-    const CONCURRENCY = 3;
+-    const TIMEOUT_MS  = 10000;
+-    const results     = [];
+-
+-    $fwMdContent.classList.remove('hidden');
+-    $fwMdContent.innerHTML = `<p style="color:#6b7280;text-align:center;padding:24px">⏳ 正在并发提炼 ${limited.length} 篇日记…</p>`;
++    const sorted = [...filtered].sort((a, b) => a.date.localeCompare(b.date));
++    let materials = sorted.map((entry, index) => `${index + 1}. ${compressDiaryForFramework(entry)}`);
++    const GROUP_SIZE = 20;
++    let round = 0;
+ 
+-    const queue = [...limited];
+-    async function worker() {
+-      while (queue.length) {
+-        const entry = queue.shift();
+-        const idx = limited.indexOf(entry);
+-        try {
+-          const compressed = await Promise.race([
+-            compressDiaryForFramework(entry),
+-            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS))
+-          ]);
+-          results.push({ index: idx, text: `${idx + 1}. ${compressed}` });
+-        } catch (e) {
+-          skippedDates.push(entry.date);
+-          results.push({ index: idx, text: `${idx + 1}. 【${entry.date} ${entry.category || ''}】${escHtml(entry.title || '无标题')}（${e.message === 'timeout' ? '超时' : '失败'}，已跳过）` });
+-        }
++    while (materials.length > GROUP_SIZE) {
++      const groups = [];
++      for (let i = 0; i < materials.length; i += GROUP_SIZE) groups.push(materials.slice(i, i + GROUP_SIZE));
++      const next = [];
++      for (let i = 0; i < groups.length; i++) {
++        $fwMdContent.textContent = `正在汇总 ${filtered.length} 篇日记：第 ${round + 1} 轮，${i + 1}/${groups.length} 组。多篇日记会产生多次 API 调用。`;
++        const result = await callAIStream(
++          `这是第 ${i + 1}/${groups.length} 组资料：\n\n${groups[i].join('\n\n')}`,
++          FRAMEWORK_BATCH_PROMPT,
++          null
++        );
++        if (!result.trim()) throw new Error('分组汇总返回了空结果');
++        next.push(`【第 ${round + 1} 轮第 ${i + 1} 组】\n${result}`);
+       }
+-    }
+-
+-    const workers = Array(Math.min(CONCURRENCY, limited.length)).fill().map(() => worker());
+-    await Promise.all(workers);
+-
+-    // 按原顺序重组
+-    const compressedList = results.sort((a, b) => a.index - b.index).map(r => r.text);
+-
+-    // ── 拼接最终 prompt ──
+-    let skipNote = '';
+-    if (skippedDates.length > 0) {
+-      skipNote = `\n（注意：以下日期的日记提炼失败已跳过：${skippedDates.join('、')}）\n`;
+-    }
+-    if (filtered.length > 20) {
+-      skipNote += `\n（因数量限制，仅分析最新 20 篇，共 ${filtered.length} 篇）\n`;
++      materials = next;
++      round++;
+     }
+-    const diaryList = compressedList.join('\n\n');
+-    const userContent = `以下是我在 ${$fwDateFrom.value} 至 ${$fwDateTo.value} 期间的 ${limited.length} 篇日记的精简摘要，请按聚合分析框架进行深度整理：${skipNote}\n\n${diaryList}`;
+ 
+-    // ── 聚合分析（流式） ──
+-    $fwMdContent.innerHTML = '<p style="color:#6b7280;text-align:center;padding:24px">🧠 正在生成思考框架…</p>';
+-
+-    fwRawMarkdown = await callAIStream(
+-      userContent,
+-      FRAMEWORK_SYSTEM_PROMPT,
+-      function(delta, full) {
+-        $fwMdContent.classList.remove('hidden');
+-        $fwMdContent.innerHTML = renderMarkdown(full);
+-        $fwMdContent.scrollIntoView({ behavior: 'smooth', block: 'end' });
+-      }
+-    );
+-
++    const userContent = `筛选范围 ${$fwDateFrom.value} 至 ${$fwDateTo.value}，共 ${filtered.length} 篇日记。以下材料覆盖该范围内全部日记，请生成结构化思考框架，并保留可追溯的日期证据：\n\n${materials.join('\n\n')}`;
++    $fwMdContent.textContent = '🧠 正在生成思考框架…';
++    fwRawMarkdown = await callAIStream(userContent, FRAMEWORK_SYSTEM_PROMPT, function(delta, full) {
++      $fwMdContent.innerHTML = renderMarkdown(full);
++    });
++    if (!fwRawMarkdown.trim()) throw new Error('模型返回了空结果');
+     $fwMdContent.innerHTML = renderMarkdown(fwRawMarkdown);
+-    $fwMdContent.classList.remove('hidden');
+     $fwCopyBar.classList.remove('hidden');
+-
+   } catch (err) {
+-    if (err.name === 'AbortError') {
+-      $fwMdContent.innerHTML = '<p style="color:#9ca3af">[请求已取消]</p>';
+-    } else if (err.message === 'NO_API_KEY') {
+-      showToast('请先在设置中配置 DeepSeek API Key');
+-      openSettings();
+-      $fwEmptyHint.classList.remove('hidden');
+-    } else {
+-      $fwMdContent.innerHTML = `<p style="color:#ef4444">分析失败：${escHtml(err.message)}</p>`;
+-    }
+-    $fwMdContent.classList.remove('hidden');
++    $fwMdContent.textContent = err.name === 'AbortError' ? '请求已取消' : `分析失败：${err.message}`;
+   } finally {
+     isAiLoading = false;
++    aiAbortController = null;
+     $fwSpinner.classList.add('hidden');
+     document.getElementById('btnGenerate').disabled = false;
+     document.getElementById('btnGenerate').textContent = '✨ 生成思考框架';
+   }
+ }
+ 
++function downloadMarkdown() {
++  if (!fwRawMarkdown) return;
++  const blob = new Blob([fwRawMarkdown], { type: 'text/markdown;charset=utf-8' });
++  const url = URL.createObjectURL(blob);
++  const a = document.createElement('a');
++  a.href = url;
++  a.download = `思考框架_${$fwDateFrom.value}_${$fwDateTo.value}.md`;
++  document.body.appendChild(a);
++  a.click();
++  a.remove();
++  URL.revokeObjectURL(url);
++  showToast('Markdown 已下载');
++}
++
+ async function copyMarkdown() {
+   if (!fwRawMarkdown) return;
+   try {
+@@ -3206,6 +3262,7 @@
+ 
+ /** 活跃方向过载弹窗 */
+ function showOverloadDialog() {
++  resetConfirmDialog();
+   document.querySelector('#confirmOverlay p').innerHTML = '活跃主线方向已达上限（5个），<br><span style="font-size:12px;color:#6b7280">请先归档一个旧方向再新建。<br>过多的方向会分散注意力。</span>';
+   document.getElementById('confirmOk').textContent = '查看我的方向';
+   document.getElementById('confirmCancel').textContent = '知道了';
+@@ -3277,6 +3334,7 @@
+   const m = mainlines.find(ml => ml.id === id);
+   if (!m) return;
+   // 复用现有 confirm 组件
++  resetConfirmDialog();
+   document.querySelector('#confirmOverlay p').innerHTML = `归档「${escHtml(m.title)}」？<br><span style="font-size:12px;color:#9ca3af">归档后可恢复，不会删除数据</span>`;
+   document.getElementById('confirmOk').onclick = function() {
+     m.status    = 'archived';
+@@ -3452,6 +3510,7 @@
+   const sg = (m.subGoals || []).find(s => s.id === sgId);
+   if (!sg) return;
+ 
++  resetConfirmDialog();
+   document.querySelector('#confirmOverlay p').innerHTML = `删除「${escHtml(sg.title)}」？<br><span style="font-size:12px;color:#ef4444">将同时删除该阶段目标及其下所有进展记录，不可恢复，确认删除？</span>`;
+   document.getElementById('confirmOk').onclick = function() {
+     m.subGoals = (m.subGoals || []).filter(s => s.id !== sgId);
+@@ -3514,6 +3573,7 @@
+   const pr = (sg.progressEntries || []).find(p => p.id === prId);
+   if (!pr) return;
+ 
++  resetConfirmDialog();
+   document.querySelector('#confirmOverlay p').innerHTML = `删除这条进展记录？<br><span style="font-size:12px;color:#9ca3af">内容：${escHtml((pr.content||'').slice(0,40))}…</span>`;
+   document.getElementById('confirmOk').onclick = function() {
+     sg.progressEntries = (sg.progressEntries || []).filter(p => p.id !== prId);
+@@ -3581,15 +3641,25 @@
+ }
+ 
+ /** 确认同步 → 弹出子目标选择器 */
+-function confirmSuggestion() {
+-  const sug = window._pendingSuggestion || (currentId ? (entryMap.get(currentId)?.summary?.suggestion) : null);
++function confirmSuggestion(entryId = currentId) {
++  if (!entryId) { showToast('请先保存日记再确认关联'); return; }
++  if (entryId === currentId) {
++    const entry = entryMap.get(entryId);
++    if (entry && (entry.title !== $title.value.trim() || entry.content !== $content.value)) {
++      showToast('请先保存日记正文再确认关联');
++      return;
++    }
++  }
++  const sug = entryId === currentId
++    ? (window._pendingSuggestion || entryMap.get(entryId)?.summary?.suggestion)
++    : entryMap.get(entryId)?.summary?.suggestion;
+   if (!sug || sug.confirmed) return;
+ 
+   const goal = mainlines.find(m => m.id === sug.goalId);
+   if (!goal || goal.status !== 'active') {
+     showToast('该目标已不存在，无法同步');
+     sug.confirmed = true;
+-    saveSuggestion(sug);
++    saveSuggestion(sug, entryId);
+     return;
+   }
+ 
+@@ -3610,25 +3680,27 @@
+ 
+   // 弹出自定义子目标选择器（复用确认弹窗）
+   if (refreshedSgs.length === 1) {
+-    doConfirmSuggestion(sug, refreshedSgs[0].id);
++    doConfirmSuggestion(sug, refreshedSgs[0].id, entryId);
+   } else {
+-    showSubGoalPicker(sug, refreshedSgs);
++    showSubGoalPicker(sug, refreshedSgs, entryId);
+   }
+ }
+ 
+-function showSubGoalPicker(sug, sgs) {
++function showSubGoalPicker(sug, sgs, entryId) {
++  resetConfirmDialog();
+   document.querySelector('#confirmOverlay p').innerHTML = `选择同步到的子目标：<br><span style="font-size:12px;color:#9ca3af">目标：${escHtml(sug.goalTitle)}</span>`;
+   const listHtml = sgs.map(sg => `
+     <button style="display:block;width:100%;padding:8px 12px;margin:4px 0;border:1px solid #e5e0d8;border-radius:6px;background:#fff;text-align:left;cursor:pointer;font-family:inherit;font-size:13px"
+-            id="sgpick_${sg.id}" onclick="doConfirmSuggestion(window._sgPickerSug, '${sg.id}'); document.getElementById('confirmOverlay').classList.remove('show');">${escHtml(sg.title)}</button>
++            id="sgpick_${sg.id}" onclick="doConfirmSuggestion(window._sgPickerSug, '${sg.id}', window._sgPickerEntryId); document.getElementById('confirmOverlay').classList.remove('show'); resetConfirmDialog();">${escHtml(sg.title)}</button>
+   `).join('');
+   document.querySelector('#confirmOverlay p').innerHTML += `<div style="margin-top:8px">${listHtml}</div>`;
+   window._sgPickerSug = sug;
++  window._sgPickerEntryId = entryId;
+   document.getElementById('confirmOk').style.display = 'none';
+   $overlay.classList.add('show');
+ }
+ 
+-function doConfirmSuggestion(sug, sgId) {
++function doConfirmSuggestion(sug, sgId, entryId = currentId) {
+   const goal = mainlines.find(m => m.id === sug.goalId);
+   if (!goal) return;
+ 
+@@ -3640,19 +3712,19 @@
+   sg.progressEntries.unshift({
+     id:      generateMainlineId(),
+     content: sug.summary,
+-    diaryId: currentId || null,
++    diaryId: entryId || null,
+     date:    now,
+     source:  'ai_suggestion',
+   });
+ 
+   if (!goal.relatedDiaryIds) goal.relatedDiaryIds = [];
+-  if (currentId && !goal.relatedDiaryIds.includes(currentId)) {
+-    goal.relatedDiaryIds.push(currentId);
++  if (entryId && !goal.relatedDiaryIds.includes(entryId)) {
++    goal.relatedDiaryIds.push(entryId);
+   }
+   goal.updatedAt = now;
+ 
+   sug.confirmed = true;
+-  saveSuggestion(sug);
++  saveSuggestion(sug, entryId);
+   saveMainlines();
+   renderSuggestionBar();
+   updateBadge();
+@@ -3666,9 +3738,9 @@
+   updateBadge();
+ }
+ 
+-function saveSuggestion(sug) {
+-  if (!currentId) return;
+-  const entry = entryMap.get( currentId);
++function saveSuggestion(sug, entryId = currentId) {
++  if (!entryId) return;
++  const entry = entryMap.get(entryId);
+   if (!entry) return;
+   if (!entry.summary) entry.summary = { aiTitle: '', aiTags: [], aiReflection: '' };
+   entry.summary.suggestion = sug;
+@@ -3751,8 +3823,7 @@
+   const entry = entryMap.get( entryId);
+   if (!entry || !entry.summary || !entry.summary.suggestion) return;
+   const sug = entry.summary.suggestion;
+-  window._pendingSuggestion = sug;
+-  confirmSuggestion(); // 复用现有逻辑
++  confirmSuggestion(entryId); // 使用建议所属日记
+ }
+ 
+ function ignoreBatchSuggestion(entryId) {
+@@ -3904,6 +3975,7 @@
+   const m = mainlines.find(ml => ml.id === currentMainlineId);
+   if (!m) return;
+ 
++  resetConfirmDialog();
+   document.querySelector('#confirmOverlay p').innerHTML = '将取消该日记与当前方向的关联，<br><span style="font-size:12px;color:#9ca3af">但不会删除已记录的进展。确认取消？</span>';
+   document.getElementById('confirmOk').onclick = function() {
+     m.relatedDiaryIds = (m.relatedDiaryIds || []).filter(id => id !== diaryId);
+@@ -4243,18 +4315,24 @@
+ });
+ 
+ // 确认对话框按钮
+-document.getElementById('confirmOk').addEventListener('click', confirmDelete);
+-document.getElementById('confirmCancel').addEventListener('click', cancelDelete);
++resetConfirmDialog();
+ $overlay.addEventListener('click', function(e) {
+   if (e.target === $overlay) cancelDelete();
+ });
+ 
+ // 草稿按钮（当前与保存行为一致）
+-document.getElementById('btnDraft').addEventListener('click', saveEntry);
++document.getElementById('btnDraft').addEventListener('click', function() {
++  saveDraft();
++  showToast('草稿已保存');
++});
+ 
+ // ── 设置面板事件 ──
+ document.getElementById('btnSettings').addEventListener('click', openSettings);
+ document.getElementById('btnSettingsSave').addEventListener('click', applySettings);
++document.getElementById('btnAddCategory').addEventListener('click', addCategory);
++document.getElementById('newCategoryInput').addEventListener('keydown', function(e) {
++  if (e.key === 'Enter') { e.preventDefault(); addCategory(); }
++});
+ document.getElementById('btnSettingsCancel').addEventListener('click', closeSettings);
+ $settingsOverlay.addEventListener('click', function(e) {
+   if (e.target === $settingsOverlay) closeSettings();
+@@ -4264,6 +4342,9 @@
+ // ── AI 分析事件 ──
+ $btnAi.addEventListener('click', runAiAnalysis);
+ $btnSaveAi.addEventListener('click', saveAiToDiary);
++document.getElementById('btnEditAi').addEventListener('click', openAiEditor);
++document.getElementById('btnApplyAiEdit').addEventListener('click', applyAiEditor);
++document.getElementById('btnCancelAiEdit').addEventListener('click', closeAiEditor);
+-document.getElementById('btnConfirmSuggestion').addEventListener('click', confirmSuggestion);
++document.getElementById('btnConfirmSuggestion').addEventListener('click', () => confirmSuggestion());
+ document.getElementById('btnIgnoreSuggestion').addEventListener('click', ignoreSuggestion);
+ document.getElementById('btnToggleBatchList').addEventListener('click', toggleBatchList);
+@@ -4277,6 +4358,7 @@
+ document.getElementById('breadcrumbHome').addEventListener('click', switchToEditor);
+ document.getElementById('btnGenerate').addEventListener('click', generateFramework);
+ document.getElementById('btnCopyMd').addEventListener('click', copyMarkdown);
++document.getElementById('btnDownloadMd').addEventListener('click', downloadMarkdown);
+ 
+ // 时间范围切换
+ document.querySelectorAll('#timeRangeGroup .time-range-btn').forEach(function(btn) {
+@@ -4389,20 +4471,15 @@
+ /* ── 启动 ── */
+ updateMenuButton(); // 移动端按钮显隐
+ loadFromStorage();
++loadCategories();
+ loadMainlines();
+ updateBadge();      // 初始计算 badge
+ renderList();
+ 
+-// 检查是否有未保存的草稿
++// 先建立空白编辑区，再提示恢复；启动时不可清除草稿
+ const savedDraft = loadDraft();
+-if (savedDraft) {
+-  showDraftBanner(savedDraft);
+-  // 不自动恢复，由用户决定是否点击「恢复」
+-  // 编辑区保持干净状态
+-  newEntry();
+-} else {
+-  newEntry();
+-}
++newEntry({ preserveDraft: true });
++if (savedDraft) showDraftBanner(savedDraft);
+ </script>
+ 
+ </body>
