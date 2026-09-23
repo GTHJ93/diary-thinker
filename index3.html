@@ -1,0 +1,4486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>思录 — 日记应用</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          warm: {
+            50:  '#faf8f5',
+            100: '#f5f0ea',
+            200: '#ebe4da',
+          },
+          ink: {
+            800: '#1f2937',
+            700: '#374151',
+            600: '#4b5563',
+            500: '#6b7280',
+            400: '#9ca3af',
+            300: '#d1d5db',
+          }
+        },
+        boxShadow: {
+          'card': '0 2px 8px rgba(0, 0, 0, 0.04)',
+          'card-hover': '0 4px 16px rgba(0, 0, 0, 0.06)',
+          'nav': '0 1px 3px rgba(0, 0, 0, 0.04)',
+        },
+        borderRadius: {
+          'card': '10px',
+          'btn': '7px',
+        }
+      }
+    }
+  }
+</script>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background-color: #faf8f5;
+    color: #374151;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ── 日记列表滚动 ── */
+  .diary-list::-webkit-scrollbar {
+    width: 4px;
+  }
+  .diary-list::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .diary-list::-webkit-scrollbar-thumb {
+    background: #e5e0d8;
+    border-radius: 4px;
+  }
+  .diary-list::-webkit-scrollbar-thumb:hover {
+    background: #d5cec4;
+  }
+
+  /* ── 编辑区滚动 ── */
+  .editor-scroll::-webkit-scrollbar {
+    width: 5px;
+  }
+  .editor-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .editor-scroll::-webkit-scrollbar-thumb {
+    background: #e5e0d8;
+    border-radius: 4px;
+  }
+
+  /* ── 正文行高 ── */
+  .prose-area {
+    line-height: 1.75;
+    font-size: 15px;
+  }
+
+  /* ── 标签颜色 ── */
+  .tag-green  { color: #059669; background-color: #ecfdf5; }
+  .tag-purple { color: #7c3aed; background-color: #f5f3ff; }
+  .tag-orange { color: #ea580c; background-color: #fff7ed; }
+  .tag-blue   { color: #2563eb; background-color: #eff6ff; }
+
+  /* ── 过渡 ── */
+  .diary-item {
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+  }
+  .diary-item:hover {
+    background-color: #fdfcfa;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  }
+  .diary-item.active {
+    background-color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border-left: 3px solid #3b82f6;
+  }
+
+  .btn {
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .btn-primary {
+    background-color: #3b82f6;
+    color: #ffffff;
+  }
+  .btn-primary:hover {
+    background-color: #2563eb;
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: #4b5563;
+  }
+  .btn-ghost:hover {
+    background-color: #f3f0eb;
+  }
+  .btn-ghost.nav-active {
+    background-color: #eff6ff;
+    color: #2563eb;
+    font-weight: 600;
+  }
+
+  .btn-danger {
+    background-color: transparent;
+    color: #9ca3af;
+  }
+  .btn-danger:hover {
+    background-color: #fef2f2;
+    color: #ef4444;
+  }
+
+  /* ── 列表项删除按钮 ── */
+  .delete-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    border: none;
+    background: transparent;
+    color: #d1d5db;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+    font-size: 16px;
+    line-height: 1;
+    font-family: inherit;
+  }
+  .diary-item:hover .delete-btn {
+    opacity: 1;
+  }
+  .delete-btn:hover {
+    color: #ef4444;
+    background-color: #fef2f2;
+  }
+
+  /* ── 格式化工具栏按钮 ── */
+  .toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    color: #6b7280;
+    background: transparent;
+    border: none;
+    cursor: default;
+    font-size: 14px;
+    transition: background-color 0.15s ease;
+    font-family: inherit;
+  }
+  .toolbar-btn:hover {
+    background-color: #f3f0eb;
+    color: #374151;
+  }
+
+  /* ── 输入框 ── */
+  .input-clean {
+    border: none;
+    outline: none;
+    background: transparent;
+    width: 100%;
+    font-family: inherit;
+    color: #374151;
+  }
+  .input-clean::placeholder {
+    color: #d1d5db;
+  }
+
+  textarea.input-clean {
+    resize: none;
+    line-height: 1.75;
+    font-size: 15px;
+  }
+  textarea.input-clean::placeholder {
+    color: #d1d5db;
+  }
+
+  /* ── 日期选择器 ── */
+  .date-input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+  }
+  .date-input::-webkit-calendar-picker-indicator {
+    opacity: 0.5;
+    cursor: pointer;
+  }
+
+  /* ── 分类下拉 ── */
+  .category-select {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid #e5e0d8;
+    outline: none;
+    background: #fdfcfa;
+    font-family: inherit;
+    font-size: 13px;
+    color: #374151;
+    padding: 6px 32px 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    transition: border-color 0.15s ease;
+  }
+  .category-select:hover {
+    border-color: #d1d5db;
+  }
+  .category-select:focus {
+    border-color: #3b82f6;
+  }
+
+  /* ── Toast（顶部弹出） ── */
+  .toast {
+    position: fixed;
+    top: 72px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: #1f2937;
+    color: #fff;
+    font-size: 13px;
+    padding: 10px 24px;
+    border-radius: 8px;
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    z-index: 100;
+    pointer-events: none;
+    font-family: inherit;
+  }
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+
+  /* ── 筛选区日期输入 ── */
+  .filter-date {
+    border: 1px solid #e5e0d8;
+    outline: none;
+    background: #fdfcfa;
+    font-family: inherit;
+    font-size: 12px;
+    color: #6b7280;
+    padding: 5px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 0;
+    min-width: 110px;
+    transition: border-color 0.15s ease;
+  }
+  .filter-date:hover {
+    border-color: #d1d5db;
+  }
+  .filter-date:focus {
+    border-color: #3b82f6;
+  }
+  .filter-date::-webkit-calendar-picker-indicator {
+    opacity: 0.4;
+    cursor: pointer;
+  }
+
+  /* ── 确认对话框遮罩 ── */
+  .confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.15);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .confirm-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .confirm-dialog {
+    background: #fff;
+    border-radius: 12px;
+    padding: 28px 32px 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    max-width: 360px;
+    width: 90%;
+    text-align: center;
+  }
+  .confirm-dialog p {
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  .confirm-dialog .confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  /* ── 草稿恢复提示条 ── */
+  .draft-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    background: #fefce8;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #92400e;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .draft-banner.hidden {
+    display: none;
+  }
+  .draft-banner .draft-time {
+    color: #a16207;
+    font-size: 12px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .draft-banner .draft-link {
+    color: #2563eb;
+    cursor: pointer;
+    font-weight: 500;
+    white-space: nowrap;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 13px;
+    padding: 0;
+  }
+  .draft-banner .draft-link:hover {
+    text-decoration: underline;
+  }
+  .draft-banner .draft-link.danger {
+    color: #9ca3af;
+    margin-left: 4px;
+  }
+  .draft-banner .draft-link.danger:hover {
+    color: #ef4444;
+  }
+
+  /* ── 草稿保存中指示点 ── */
+  .draft-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #f59e0b;
+    margin-right: 6px;
+    vertical-align: middle;
+    animation: draft-pulse 2s ease-in-out infinite;
+  }
+  .draft-dot.saved {
+    background: #10b981;
+    animation: none;
+  }
+  @keyframes draft-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.4; }
+  }
+
+  /* ── 设置模态框 ── */
+  .settings-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.15);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .settings-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .settings-dialog {
+    background: #fff;
+    border-radius: 12px;
+    padding: 28px 32px 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    max-width: 440px;
+    width: 90%;
+  }
+  .settings-dialog h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 20px;
+  }
+  .settings-field {
+    margin-bottom: 16px;
+  }
+  .settings-field label {
+    display: block;
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 5px;
+    font-weight: 500;
+  }
+  .settings-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e5e0d8;
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 13px;
+    color: #374151;
+    background: #fdfcfa;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .settings-input:focus {
+    border-color: #3b82f6;
+  }
+  .settings-input::placeholder {
+    color: #d1d5db;
+  }
+
+  /* ── AI 分析结果卡 ── */
+  .ai-result-card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    padding: 20px 24px;
+    margin-top: 16px;
+    transition: opacity 0.3s ease;
+  }
+  .ai-result-card.loading {
+    opacity: 0.7;
+  }
+  .ai-result-card h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ai-section {
+    margin-bottom: 14px;
+  }
+  .ai-section:last-child {
+    margin-bottom: 0;
+  }
+  .ai-section .ai-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  .ai-section .ai-text {
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.65;
+  }
+  .ai-keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .ai-keyword-tag {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 500;
+  }
+  .ai-action-item {
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.6;
+    padding: 3px 0 3px 16px;
+    position: relative;
+  }
+  .ai-action-item::before {
+    content: '·';
+    position: absolute;
+    left: 4px;
+    color: #3b82f6;
+    font-weight: bold;
+  }
+  .ai-streaming-text {
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* ── 加载旋转器 ── */
+  .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e5e0d8;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── AI 按钮 ── */
+  .btn-ai {
+    background-color: #f5f3ff;
+    color: #7c3aed;
+    border: none;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color 0.15s ease;
+  }
+  .btn-ai:hover {
+    background-color: #ede9fe;
+  }
+  .btn-ai:disabled {
+    background-color: #f3f0eb;
+    color: #d1d5db;
+    cursor: not-allowed;
+  }
+
+  /* ── 思考框架页面 ── */
+  .framework-config {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    padding: 20px 24px;
+  }
+  .framework-config h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 16px;
+  }
+  .time-range-group {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .time-range-btn {
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: 1px solid #e5e0d8;
+    background: #fdfcfa;
+    color: #6b7280;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .time-range-btn:hover {
+    border-color: #3b82f6;
+    color: #3b82f6;
+  }
+  .time-range-btn.active {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #2563eb;
+    font-weight: 600;
+  }
+  .time-range-custom {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ── 面包屑 ── */
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #9ca3af;
+  }
+  .breadcrumb a {
+    color: #6b7280;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .breadcrumb a:hover {
+    color: #3b82f6;
+  }
+  .breadcrumb .sep {
+    color: #d1d5db;
+  }
+
+  /* ── Markdown 渲染 ── */
+  .md-content {
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.75;
+  }
+  .md-content h1 { font-size: 22px; font-weight: 700; color: #1f2937; margin: 20px 0 10px; }
+  .md-content h2 { font-size: 18px; font-weight: 600; color: #1f2937; margin: 18px 0 8px; padding-bottom: 6px; border-bottom: 1px solid #f3f0eb; }
+  .md-content h3 { font-size: 15px; font-weight: 600; color: #374151; margin: 14px 0 6px; }
+  .md-content p  { margin: 8px 0; }
+  .md-content ul { margin: 6px 0; padding-left: 20px; }
+  .md-content li { margin: 3px 0; }
+  .md-content strong { color: #1f2937; }
+  .md-content em   { color: #6b7280; }
+  .md-content hr   { border: none; border-top: 1px solid #e5e0d8; margin: 16px 0; }
+  .md-content code { background: #f3f0eb; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+
+  /* ── 框架结果卡 ── */
+  .framework-result-card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    padding: 24px 28px;
+    min-height: 200px;
+  }
+  .framework-result-card .empty-hint {
+    color: #9ca3af;
+    text-align: center;
+    padding: 40px 0;
+    font-size: 14px;
+  }
+
+  /* ── 思考主线 ── */
+  .mainline-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .mainline-header h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f2937;
+  }
+  .mainline-filter-bar {
+    height: 40px;
+    border-bottom: 1px solid #e5e0d8;
+    margin-bottom: 16px;
+  }
+  .mainline-card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    padding: 16px 20px;
+    margin-bottom: 10px;
+    transition: box-shadow 0.15s ease;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .mainline-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  }
+  .mainline-card .card-body { flex: 1; min-width: 0; }
+  .mainline-card .card-title { font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 4px; }
+  .mainline-card .card-desc  { font-size: 13px; color: #6b7280; line-height: 1.5; margin-bottom: 6px; }
+  .mainline-card .card-meta  { font-size: 12px; color: #9ca3af; display: flex; align-items: center; gap: 10px; }
+  .mainline-card .tag-active { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #ecfdf5; color: #059669; font-weight: 500; }
+  .mainline-card .btn-archive { font-size: 12px; color: #d1d5db; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 5px; font-family: inherit; transition: color 0.15s, background 0.15s; white-space: nowrap; }
+  .mainline-card .btn-archive:hover { color: #ef4444; background: #fef2f2; }
+  .mainline-empty {
+    text-align: center;
+    padding: 48px 0;
+    color: #9ca3af;
+    font-size: 14px;
+  }
+
+  /* ── 主线详情页 ── */
+  .detail-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .detail-header .btn-back {
+    flex-shrink: 0;
+    font-size: 13px;
+    color: #6b7280;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+  .detail-header .btn-back:hover { background: #f3f0eb; color: #1f2937; }
+  .detail-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1f2937;
+    line-height: 1.3;
+  }
+  .detail-desc {
+    font-size: 13px;
+    color: #9ca3af;
+    margin-top: 2px;
+    line-height: 1.5;
+  }
+
+  /* ── 子目标条目 ── */
+  .subgoal-item {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .subgoal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.1s;
+  }
+  .subgoal-header:hover { background: #fdfcfa; }
+  .subgoal-header .sg-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+  .subgoal-header .sg-arrow {
+    font-size: 11px;
+    color: #9ca3af;
+    transition: transform 0.15s;
+    flex-shrink: 0;
+  }
+  .subgoal-item.expanded .sg-arrow { transform: rotate(90deg); }
+  .subgoal-header .btn-delete-sg {
+    font-size: 12px;
+    color: #d1d5db;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: inherit;
+    margin-left: 8px;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+  }
+  .subgoal-header .btn-delete-sg:hover { color: #ef4444; background: #fef2f2; }
+
+  .subgoal-body {
+    display: none;
+    border-top: 1px solid #f3f0eb;
+    padding: 12px 16px 16px;
+    background: #fdfcfa;
+  }
+  .subgoal-item.expanded .subgoal-body { display: block; }
+
+  .progress-entry {
+    font-size: 13px;
+    color: #6b7280;
+    padding: 8px 0;
+    border-bottom: 1px solid #f3f0eb;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .progress-entry:last-child { border-bottom: none; }
+  .progress-entry .pe-date { font-size: 12px; color: #9ca3af; flex-shrink: 0; width: 75px; }
+  .progress-entry .pe-summary { flex: 1; min-width: 0; }
+  .progress-entry .pe-source {
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: #f3f0eb;
+    color: #9ca3af;
+    flex-shrink: 0;
+  }
+  .progress-empty {
+    font-size: 13px;
+    color: #9ca3af;
+    padding: 8px 0;
+    text-align: center;
+  }
+
+  .subgoal-empty-hint {
+    text-align: center;
+    padding: 24px 0;
+    color: #9ca3af;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* ── 进展条目删除 ── */
+  .progress-entry .btn-del-progress {
+    font-size: 12px;
+    color: #d1d5db;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: inherit;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s, background 0.15s;
+  }
+  .progress-entry:hover .btn-del-progress { opacity: 1; }
+  .progress-entry .btn-del-progress:hover { color: #ef4444; background: #fef2f2; }
+
+  /* ── 关联日记区域 ── */
+  .related-diary-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f3f0eb;
+    font-size: 13px;
+  }
+  .related-diary-item:last-child { border-bottom: none; }
+  .related-diary-item .rd-date {
+    font-size: 12px; color: #9ca3af; flex-shrink: 0; width: 85px;
+  }
+  .related-diary-item .rd-summary {
+    flex: 1; min-width: 0; color: #6b7280; cursor: pointer; line-height: 1.4;
+  }
+  .related-diary-item .rd-summary:hover { color: #2563eb; }
+  .related-diary-item .rd-badge {
+    font-size: 11px; padding: 1px 8px; border-radius: 10px;
+    background: #ecfdf5; color: #059669; flex-shrink: 0;
+  }
+  .related-diary-item .btn-unlink {
+    font-size: 11px; color: #d1d5db; background: none; border: none;
+    cursor: pointer; padding: 2px 6px; border-radius: 4px; font-family: inherit;
+    flex-shrink: 0; transition: color 0.15s, background 0.15s;
+  }
+  .related-diary-item .btn-unlink:hover { color: #ef4444; background: #fef2f2; }
+
+  /* ── 关联选择器（两列布局） ── */
+  .link-selector { display: flex; gap: 0; min-height: 240px; max-height: 360px; }
+  .link-selector .ls-col {
+    flex: 1; overflow-y: auto; padding: 8px 0;
+    border: 1px solid #f3f0eb; border-radius: 8px;
+  }
+  .link-selector .ls-col + .ls-col { margin-left: 10px; }
+  .link-selector .ls-item {
+    padding: 8px 14px; cursor: pointer; font-size: 13px; color: #374151;
+    transition: background 0.1s; border-left: 3px solid transparent;
+  }
+  .link-selector .ls-item:hover { background: #fdfcfa; }
+  .link-selector .ls-item.selected {
+    background: #eff6ff; border-left-color: #3b82f6; color: #2563eb; font-weight: 500;
+  }
+  .link-selector .ls-item.ls-skip {
+    color: #9ca3af; font-style: italic; border-top: 1px solid #f3f0eb; margin-top: 4px; padding-top: 10px;
+  }
+
+  /* ── AI 关联建议确认条 ── */
+  .suggestion-bar {
+    margin-top: 12px;
+    padding: 14px 16px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .suggestion-body {
+    font-size: 13px;
+    color: #1e40af;
+    line-height: 1.5;
+    flex: 1;
+    min-width: 0;
+  }
+  .suggestion-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  /* ── 导航 Badge ── */
+  .nav-badge {
+    position: absolute;
+    top: -4px;
+    right: -6px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  /* ── 批量建议提示条 ── */
+  .batch-banner {
+    padding: 10px 14px;
+    background: #fefce8;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #92400e;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  .batch-banner:hover { background: #fef9c3; }
+  .batch-list {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    padding: 0;
+  }
+  .batch-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f0eb;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .batch-item:last-child { border-bottom: none; }
+  .batch-item .bi-info { flex: 1; min-width: 0; color: #374151; line-height: 1.5; }
+  .batch-item .bi-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  /* ── 搜索关联弹窗 ── */
+  .search-link-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-bottom: 1px solid #f3f0eb; font-size: 13px;
+  }
+  .search-link-item .sl-checkbox { flex-shrink: 0; accent-color: #3b82f6; }
+
+  /* ── 子目标头部添加进展按钮 ── */
+  .subgoal-header .btn-add-progress {
+    font-size: 11px; color: #9ca3af; background: none; border: 1px solid #e5e0d8;
+    cursor: pointer; padding: 2px 8px; border-radius: 4px; font-family: inherit;
+    margin-left: 4px; flex-shrink: 0; transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .subgoal-header .btn-add-progress:hover { color: #3b82f6; border-color: #3b82f6; background: #eff6ff; }
+
+  /* ── 移动端适配（<768px） ── */
+  @media (max-width: 767px) {
+
+    /* 导航栏紧凑 */
+    header { padding: 0 12px; }
+    header .text-lg { font-size: 15px; }
+    header span.text-xs { display: none; }
+    .btn { font-size: 12px; padding: 6px 10px; }
+
+    /* 左侧栏变为抽屉 */
+    aside {
+      position: fixed !important;
+      top: 56px !important;
+      left: 0 !important;
+      bottom: 0 !important;
+      width: 300px !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      z-index: 60 !important;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      box-shadow: 2px 0 16px rgba(0,0,0,0.08);
+    }
+    aside.open { transform: translateX(0); }
+
+    /* 侧栏遮罩 */
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      top: 56px;
+      z-index: 55;
+      background: rgba(0,0,0,0.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .sidebar-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* 主区域全宽 */
+    main { width: 100% !important; }
+
+    /* 编辑区减小内边距 */
+    #editorView .max-w-3xl,
+    #frameworkView .max-w-3xl {
+      padding-left: 16px !important;
+      padding-right: 16px !important;
+    }
+    #editorView .p-8 { padding: 20px 16px !important; }
+
+    /* 框架配置区紧凑 */
+    .framework-config { padding: 16px; }
+    .framework-result-card { padding: 16px; }
+
+    /* 底部操作按钮 */
+    #editorView .flex.items-center.justify-between.mt-5 {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    #editorView .flex.items-center.gap-2 {
+      flex-wrap: wrap;
+    }
+
+    /* ── 主线模块移动端 ── */
+    #mainlineView .max-w-3xl,
+    #mainlineContent { padding-left: 12px !important; padding-right: 12px !important; }
+
+    /* 导航栏按钮缩小，不换行 */
+    header .btn { font-size: 11px; padding: 5px 8px; white-space: nowrap; }
+    header .flex.items-center.gap-2 { gap: 4px; flex-wrap: nowrap; }
+    header .btn-primary .mr-1 { margin-right: 2px; }
+
+    /* 模态框全屏 */
+    .confirm-dialog {
+      max-width: 100vw !important;
+      width: 100vw !important;
+      min-height: 100vh;
+      border-radius: 0 !important;
+      padding: 20px 16px !important;
+      display: flex;
+      flex-direction: column;
+    }
+    .confirm-dialog .flex.items-center.justify-end {
+      margin-top: auto !important;
+      padding-top: 16px;
+    }
+    .link-selector { flex-direction: column; min-height: 200px; max-height: none; }
+    .link-selector .ls-col + .ls-col { margin-left: 0; margin-top: 8px; }
+    .link-selector .ls-col { max-height: 180px; }
+
+    /* 触控目标最小 44px */
+    .btn, .btn-ai, .btn-ghost, .btn-primary, .btn-archive,
+    .btn-back, .btn-delete-sg, .btn-add-progress, .btn-unlink,
+    .btn-del-progress, .subgoal-header, .ls-item, .search-link-item {
+      min-height: 44px;
+    }
+    .subgoal-header .sg-arrow { min-width: 24px; }
+
+    /* 关联日记条目紧凑 */
+    .related-diary-item { flex-wrap: wrap; gap: 4px; }
+    .related-diary-item .rd-date { width: auto; }
+    .related-diary-item .rd-summary { flex: 1 1 100%; }
+
+    /* 搜索关联弹窗 */
+    #searchDiaryList { max-height: 40vh; }
+
+    /* 新建方向悬浮按钮（移动端） */
+    #btnNewMainline {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      z-index: 50;
+      border-radius: 50%;
+      width: 52px;
+      height: 52px;
+      padding: 0;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(59,130,246,0.3);
+    }
+    #mainlineList { padding-bottom: 72px; }
+
+    /* 编辑页关联按钮变图标 */
+    #btnLinkDiary { font-size: 0; padding: 8px 10px; min-width: 44px; }
+    #btnLinkDiary::before { content: '🔗'; font-size: 16px; }
+
+    /* 生成复盘按钮全宽 */
+    #btnGoalReview { width: 100%; justify-content: center; }
+
+    /* 批量建议列表 */
+    .batch-item { flex-direction: column; align-items: flex-start; }
+    .batch-item .bi-actions { align-self: flex-end; }
+  }
+</style>
+</head>
+<body class="h-full flex flex-col">
+
+<!-- ════════════════════════ 顶部导航栏 ════════════════════════ -->
+<header class="fixed top-0 inset-x-0 z-50 h-14 bg-white/90 backdrop-blur-sm shadow-nav flex items-center px-6">
+  <!-- 移动端菜单按钮 -->
+  <button class="btn btn-ghost px-2 py-1 mr-1 hidden" id="btnMenu" type="button" style="display:none" aria-label="菜单">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"></path>
+    </svg>
+  </button>
+  <div class="flex items-center gap-2 flex-1">
+    <span class="text-lg font-semibold tracking-tight text-ink-800">思录</span>
+    <span class="text-xs text-ink-400 font-normal mt-0.5">· 安静地记录每一天</span>
+  </div>
+
+  <div class="flex items-center gap-2">
+    <button class="btn btn-primary px-4 py-2" type="button" id="btnNew">
+      <span class="mr-1">+</span> 新建日记
+    </button>
+    <button class="btn btn-ghost px-4 py-2" type="button" id="btnFramework">
+      思考框架
+    </button>
+    <button class="btn btn-ghost px-4 py-2" type="button" id="btnMainline" style="position:relative">
+      思考主线
+      <span class="nav-badge hidden" id="mainlineBadge"></span>
+    </button>
+    <button class="btn btn-ghost px-3 py-2" type="button" id="btnSettings">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- 侧栏遮罩（移动端） -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- ════════════════════════ 主体内容区 ════════════════════════ -->
+<div class="flex flex-1 pt-14 h-full">
+
+  <!-- ─── 左侧：日记列表 (30%) ─── -->
+  <aside class="w-[30%] min-w-[320px] max-w-[420px] border-r border-ink-300/30 flex flex-col h-full bg-warm-50/60">
+
+    <!-- 筛选栏 -->
+    <div class="px-5 pt-5 pb-3 space-y-2">
+      <!-- 分类筛选 -->
+      <select id="filterCategory" class="category-select w-full">
+        <option value="">📂 全部分类</option>
+        <option value="工作思考">工作思考</option>
+        <option value="生活感悟">生活感悟</option>
+        <option value="学习笔记">学习笔记</option>
+        <option value="情绪记录">情绪记录</option>
+      </select>
+      <!-- 日期范围 -->
+      <div class="flex items-center gap-1.5">
+        <input type="date" id="filterDateFrom" class="filter-date" title="起始日期">
+        <span class="text-xs text-ink-400 flex-shrink-0">至</span>
+        <input type="date" id="filterDateTo" class="filter-date" title="结束日期">
+        <span class="text-xs text-ink-400 flex-shrink-0 ml-auto" id="filterCount"></span>
+      </div>
+    </div>
+
+    <!-- 日记列表（可滚动） -->
+    <nav class="flex-1 overflow-y-auto diary-list px-4 pb-4" id="diaryList"></nav>
+  </aside>
+
+  <!-- ─── 右侧：日记编辑区 (70%) ─── -->
+  <main class="flex-1 flex flex-col h-full overflow-hidden bg-warm-50/40">
+
+    <!-- ═══ 编辑视图 ═══ -->
+    <div id="editorView" class="flex-1 overflow-y-auto editor-scroll">
+      <div class="max-w-3xl mx-auto px-10 py-8">
+
+        <div class="bg-white rounded-card shadow-card p-8">
+
+          <!-- 草稿恢复提示条 -->
+          <div class="draft-banner hidden" id="draftBanner">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>检测到未保存的草稿</span>
+            <span class="draft-time" id="draftTime"></span>
+            <button class="draft-link" id="draftRestore">恢复</button>
+            <button class="draft-link danger" id="draftDiscard">丢弃</button>
+          </div>
+
+          <!-- 日期选择器 -->
+          <div class="flex items-center gap-2 mb-5">
+            <input type="date" id="editorDate" class="date-input">
+            <span class="text-xs text-ink-400" id="editorWeekday"></span>
+          </div>
+
+          <!-- 标题输入 -->
+          <input
+            type="text"
+            id="editorTitle"
+            class="input-clean text-xl font-semibold text-ink-800 mb-4 placeholder:text-ink-300"
+            placeholder="给这篇日记起个标题…"
+          >
+
+          <!-- 分类下拉 -->
+          <div class="flex items-center gap-2 mb-6">
+            <span class="text-xs text-ink-400">分类：</span>
+            <select id="editorCategory" class="category-select">
+              <option value="">选择分类…</option>
+              <option value="工作思考">工作思考</option>
+              <option value="生活感悟">生活感悟</option>
+              <option value="学习笔记">学习笔记</option>
+              <option value="情绪记录">情绪记录</option>
+            </select>
+          </div>
+
+          <!-- 正文编辑区 -->
+          <textarea
+            id="editorContent"
+            class="input-clean prose-area w-full min-h-[420px] placeholder:text-ink-300"
+            placeholder="开始写点什么…"
+          ></textarea>
+
+        </div>
+
+        <!-- AI 分析结果区 -->
+        <div class="ai-result-card hidden" id="aiResultCard">
+          <h4>
+            <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+            </svg>
+            AI 分析结果
+            <span class="spinner hidden" id="aiSpinner"></span>
+          </h4>
+          <!-- 流式文本（加载中显示） -->
+          <div class="ai-streaming-text hidden" id="aiStreaming"></div>
+          <!-- 结构化结果（完成后显示） -->
+          <div class="hidden" id="aiStructured">
+            <div class="ai-section">
+              <div class="ai-label">💡 核心观点</div>
+              <div class="ai-text" id="aiCoreIdeas"></div>
+            </div>
+            <div class="ai-section">
+              <div class="ai-label">🏷️ 关键词</div>
+              <div class="ai-keywords" id="aiKeywords"></div>
+            </div>
+            <div class="ai-section">
+              <div class="ai-label">😊 情绪倾向</div>
+              <div class="ai-text" id="aiSentiment"></div>
+            </div>
+            <div class="ai-section">
+              <div class="ai-label">✅ 行动项</div>
+              <div id="aiActionItems"></div>
+            </div>
+          </div>
+          <div id="aiStaleNotice" class="hidden text-xs text-amber-700 mt-3">日记正文已修改，已有提炼可能过时，请重新分析。</div>
+          <div id="aiEditForm" class="hidden mt-4 space-y-2">
+            <label class="text-xs text-ink-500 block">核心观点（每行一条）<textarea id="aiEditCore" class="settings-input w-full" rows="4"></textarea></label>
+            <label class="text-xs text-ink-500 block">关键词（顿号或逗号分隔）<input id="aiEditKeywords" class="settings-input w-full" type="text"></label>
+            <label class="text-xs text-ink-500 block">情绪倾向<input id="aiEditSentiment" class="settings-input w-full" type="text"></label>
+            <label class="text-xs text-ink-500 block">行动项（每行一条）<textarea id="aiEditActions" class="settings-input w-full" rows="3"></textarea></label>
+            <div class="flex gap-2 justify-end">
+              <button class="btn btn-ghost px-3 py-1" id="btnCancelAiEdit" type="button">取消修改</button>
+              <button class="btn btn-primary px-3 py-1" id="btnApplyAiEdit" type="button">应用修改</button>
+            </div>
+          </div>
+          <div class="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-gray-100">
+            <button class="btn btn-ghost px-3 py-1" id="btnEditAi" type="button">编辑结果</button>
+            <button class="btn-ai" id="btnSaveAi" type="button">保存到日记</button>
+          </div>
+
+          <!-- 关联建议确认条 -->
+          <div class="suggestion-bar hidden" id="suggestionBar">
+            <div class="suggestion-body">
+              <span id="suggestionText"></span>
+            </div>
+            <div class="suggestion-actions">
+              <button class="btn btn-ghost px-3 py-1 text-sm" id="btnIgnoreSuggestion">忽略</button>
+              <button class="btn btn-primary px-4 py-1 text-sm" id="btnConfirmSuggestion">确认同步</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 底部操作区 -->
+        <div class="flex items-center justify-between mt-5 px-1">
+          <div class="text-xs text-ink-400" id="saveStatus"><span class="draft-dot hidden" id="draftDot"></span><span id="saveStatusText"></span></div>
+          <div class="flex items-center gap-2">
+            <button class="btn-ai" id="btnAiAnalyze" type="button">✨ AI 提炼要点</button>
+            <button class="btn btn-ghost px-4 py-2 text-sm" id="btnLinkDiary" type="button">
+              🔗 关联到主线
+            </button>
+            <button class="btn btn-ghost px-4 py-2 text-sm" id="btnDraft" type="button">
+              存为草稿
+            </button>
+            <button class="btn btn-primary px-5 py-2 text-sm" id="btnSave" type="button">
+              保存日记
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /editorView -->
+
+  <!-- ═══ 思考框架视图 ═══ -->
+  <div id="frameworkView" class="hidden flex-1 overflow-y-auto editor-scroll">
+    <div class="max-w-3xl mx-auto px-10 pt-2 pb-8 flex flex-col gap-4">
+
+      <!-- 面包屑 -->
+      <div class="breadcrumb">
+        <a id="breadcrumbHome">思录</a>
+        <span class="sep">›</span>
+        <span>思考框架</span>
+      </div>
+
+      <!-- 配置区 -->
+      <div class="framework-config">
+        <h3>🧠 聚合分析配置</h3>
+
+        <!-- 时间范围选择 -->
+        <div class="time-range-group" id="timeRangeGroup">
+          <button class="time-range-btn active" data-range="7d">近 7 天</button>
+          <button class="time-range-btn" data-range="month">本月</button>
+          <button class="time-range-btn" data-range="custom">自定义</button>
+        </div>
+        <div class="time-range-custom hidden mb-3" id="customDateRange">
+          <input type="date" id="fwDateFrom" class="filter-date" style="min-width:130px">
+          <span class="text-xs text-ink-400">至</span>
+          <input type="date" id="fwDateTo"   class="filter-date" style="min-width:130px">
+        </div>
+
+        <!-- 分类 + 生成按钮 -->
+        <div class="flex items-end gap-3">
+          <div class="flex-1">
+            <label class="text-xs text-ink-500 font-medium block mb-1">分类筛选</label>
+            <select id="fwCategory" class="category-select" style="width:100%">
+              <option value="">全部分类</option>
+              <option value="工作思考">工作思考</option>
+              <option value="生活感悟">生活感悟</option>
+              <option value="学习笔记">学习笔记</option>
+              <option value="情绪记录">情绪记录</option>
+            </select>
+          </div>
+          <button class="btn btn-primary px-5 py-2 flex-shrink-0" id="btnGenerate" type="button">
+            ✨ 生成思考框架
+          </button>
+        </div>
+        <p class="text-xs text-ink-400 mt-3" style="line-height:1.5">已提炼的日记将直接复用提炼结果，未提炼的会先自动提炼一次，后续聚合无需重复消耗 Token。</p>
+      </div>
+
+      <!-- 结果区 -->
+      <div class="framework-result-card" id="fwResultCard">
+        <div class="empty-hint" id="fwEmptyHint">
+          选择时间范围和分类后，点击「生成思考框架」<br>AI 将对筛选范围内的日记进行聚合分析
+        </div>
+        <div class="md-content hidden" id="fwMdContent"></div>
+        <div class="spinner hidden" id="fwSpinner" style="margin:20px auto"></div>
+      </div>
+
+      <!-- 框架导出 -->
+      <div class="flex justify-end gap-2 hidden" id="fwCopyBar">
+        <button class="btn btn-ghost px-4 py-2 text-sm" id="btnCopyMd" type="button">📋 复制为 Markdown</button>
+        <button class="btn btn-ghost px-4 py-2 text-sm" id="btnDownloadMd" type="button">⬇️ 下载 .md</button>
+      </div>
+
+    </div>
+  </div><!-- /frameworkView -->
+
+  <!-- ═══ 思考主线视图 ═══ -->
+  <div id="mainlineView" class="hidden flex-1 overflow-y-auto editor-scroll">
+    <div class="max-w-3xl mx-auto px-10 pt-2 pb-8 flex flex-col gap-4" id="mainlineContent">
+
+      <!-- ── 列表模式 ── -->
+      <div id="mlListMode">
+        <div class="mainline-header">
+          <h3>思考主线</h3>
+          <button class="btn btn-primary px-4 py-2 text-sm" id="btnNewMainline" type="button">
+            + 新建主线方向
+          </button>
+        </div>
+        <div class="mainline-filter-bar"></div>
+        <div id="mainlineList"></div>
+      </div>
+
+      <!-- ── 详情模式 ── -->
+      <div id="mlDetailMode" class="hidden flex flex-col gap-4">
+        <div class="detail-header">
+          <button class="btn-back" id="btnBackToList">← 返回</button>
+          <div style="flex:1;min-width:0">
+            <div class="detail-title" id="detailTitle"></div>
+            <div class="detail-desc" id="detailDesc"></div>
+          </div>
+        </div>
+
+        <!-- 批量建议提示条 -->
+        <div class="batch-banner hidden" id="batchSuggestionBanner">
+          <span id="batchSuggestionText"></span>
+          <button class="btn-back" id="btnToggleBatchList" style="font-size:12px;margin-left:8px">展开 ▼</button>
+        </div>
+        <div class="batch-list hidden" id="batchSuggestionList"></div>
+
+        <div id="subgoalList"></div>
+
+        <button class="btn btn-primary px-4 py-2 text-sm self-start" id="btnAddSubGoal" type="button">
+          + 添加阶段目标
+        </button>
+
+        <!-- 分区线 -->
+        <hr style="border:none;border-top:1px solid #e5e0d8;margin:8px 0 0">
+
+        <!-- 关联日记区域 -->
+        <div class="framework-result-card" style="margin-top:0">
+          <h4 style="font-size:14px;font-weight:600;color:#1f2937;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+            📎 关联日记
+          </h4>
+          <div id="relatedDiaryList"></div>
+          <button class="btn btn-ghost px-4 py-2 text-sm mt-1" id="btnSearchDiary" type="button">
+            + 添加关联日记
+          </button>
+        </div>
+
+        <!-- 分区线 -->
+        <hr style="border:none;border-top:1px solid #e5e0d8;margin:4px 0 0">
+
+        <!-- 复盘引导 / 上次结果 -->
+        <div id="reviewGuide" style="font-size:13px;color:#9ca3af;line-height:1.5;padding:8px 0">
+          定期复盘能帮你发现进展和盲区，点击下方按钮生成首份复盘报告吧。
+        </div>
+        <div id="prevReviewArea" class="hidden" style="margin-bottom:0">
+          <div style="cursor:pointer;font-size:13px;color:#6b7280;padding:6px 0;display:flex;align-items:center;gap:6px" onclick="document.getElementById('prevReviewContent').classList.toggle('hidden');this.querySelector('span').textContent=document.getElementById('prevReviewContent').classList.contains('hidden')?'▶':'▼'">
+            <span>▶</span> 上次复盘结果
+          </div>
+          <div id="prevReviewContent" class="hidden framework-result-card" style="margin-top:8px;padding:16px"></div>
+        </div>
+
+        <!-- 目标复盘区域 -->
+        <button class="btn btn-primary px-5 py-2 text-sm self-start" id="btnGoalReview" type="button">
+          ✨ 生成目标复盘
+        </button>
+
+        <div class="framework-result-card hidden" id="reviewResultCard">
+          <div class="md-content" id="reviewMdContent"></div>
+          <div class="spinner hidden" id="reviewSpinner" style="margin:20px auto"></div>
+        </div>
+
+        <div class="flex justify-end hidden" id="reviewCopyBar">
+          <button class="btn btn-ghost px-4 py-2 text-sm" id="btnCopyReview" type="button">
+            📋 复制为 Markdown
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </div><!-- /mainlineView -->
+
+  </main>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- 设置面板 -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-dialog">
+    <h3>⚙️ 设置</h3>
+    <div class="settings-field">
+      <label for="settingsVendor">API 厂商</label>
+      <select id="settingsVendor" class="category-select" style="width:100%">
+        <option value="deepseek">DeepSeek</option>
+        <option value="zhipu">智谱GLM</option>
+      </select>
+    </div>
+    <div class="settings-field">
+      <label for="settingsApiKey">API Key</label>
+      <input type="password" id="settingsApiKey" class="settings-input" placeholder="sk-…">
+    </div>
+    <div class="settings-field">
+      <label for="settingsApiUrl">API 地址</label>
+      <input type="text" id="settingsApiUrl" class="settings-input" placeholder="https://api.deepseek.com">
+    </div>
+    <div class="settings-field">
+      <label for="settingsModel">模型</label>
+      <select id="settingsModel" class="category-select" style="width:100%"></select>
+    </div>
+    <div class="settings-field">
+      <label for="newCategoryInput">自定义分类</label>
+      <div class="flex gap-2">
+        <input type="text" id="newCategoryInput" class="settings-input flex-1" placeholder="输入新分类名称" maxlength="20">
+        <button class="btn btn-ghost px-4 py-2" id="btnAddCategory" type="button">添加</button>
+      </div>
+      <div id="categoryList" class="mt-2" style="font-size:12px;color:#6b7280"></div>
+    </div>
+    <hr style="border:none;border-top:1px solid #f3f0eb;margin:20px 0 16px">
+    <div class="settings-field">
+      <label>数据管理</label>
+      <div class="flex gap-2">
+        <button class="btn btn-ghost px-4 py-2 text-sm flex-1" id="btnExportData" type="button">📤 导出 JSON</button>
+        <button class="btn btn-ghost px-4 py-2 text-sm flex-1" id="btnImportData" type="button">📥 导入 JSON</button>
+      </div>
+      <input type="file" id="importFileInput" accept=".json" style="display:none">
+    </div>
+    <div class="flex items-center justify-end gap-2 mt-5">
+      <button class="btn btn-ghost px-4 py-2" id="btnSettingsCancel">取消</button>
+      <button class="btn btn-primary px-5 py-2" id="btnSettingsSave">保存设置</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新建主线方向模态框 -->
+<div class="confirm-overlay" id="mainlineModalOverlay">
+  <div class="confirm-dialog" style="max-width:420px;text-align:left">
+    <h3 style="font-size:16px;font-weight:600;color:#1f2937;margin-bottom:16px">新建主线方向</h3>
+    <div class="settings-field">
+      <label for="mlTitle">方向名称 <span style="color:#ef4444">*</span></label>
+      <input type="text" id="mlTitle" class="settings-input" placeholder="例如：深度学习、每周运动…" maxlength="60">
+    </div>
+    <div class="settings-field">
+      <label for="mlDesc">描述（选填）</label>
+      <textarea id="mlDesc" class="settings-input" rows="3" style="resize:vertical;min-height:60px" placeholder="简短描述这个方向的关注点…" maxlength="200"></textarea>
+    </div>
+    <div class="flex items-center justify-end gap-2 mt-4">
+      <button class="btn btn-ghost px-4 py-2" id="btnMlCancel">取消</button>
+      <button class="btn btn-primary px-5 py-2" id="btnMlSubmit">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- 添加阶段目标模态框 -->
+<div class="confirm-overlay" id="subgoalModalOverlay">
+  <div class="confirm-dialog" style="max-width:400px;text-align:left">
+    <h3 style="font-size:16px;font-weight:600;color:#1f2937;margin-bottom:16px">添加阶段目标</h3>
+    <div class="settings-field">
+      <label for="sgTitle">目标名称 <span style="color:#ef4444">*</span></label>
+      <input type="text" id="sgTitle" class="settings-input" placeholder="例如：完成前3章阅读…" maxlength="80">
+    </div>
+    <div class="flex items-center justify-end gap-2 mt-4">
+      <button class="btn btn-ghost px-4 py-2" id="btnSgCancel">取消</button>
+      <button class="btn btn-primary px-5 py-2" id="btnSgSubmit">添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 添加进展模态框 -->
+<div class="confirm-overlay" id="progressModalOverlay">
+  <div class="confirm-dialog" style="max-width:420px;text-align:left">
+    <h3 style="font-size:16px;font-weight:600;color:#1f2937;margin-bottom:16px">添加进展</h3>
+    <div class="settings-field">
+      <label for="prContent">进展内容 <span style="color:#ef4444">*</span></label>
+      <textarea id="prContent" class="settings-input" rows="4" style="resize:vertical;min-height:80px" placeholder="记录你在这个阶段目标上的进展…" maxlength="500"></textarea>
+    </div>
+    <div class="flex items-center justify-end gap-2 mt-4">
+      <button class="btn btn-ghost px-4 py-2" id="btnPrCancel">取消</button>
+      <button class="btn btn-primary px-5 py-2" id="btnPrSubmit">添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 关联到主线模态框 -->
+<div class="confirm-overlay" id="linkDiaryOverlay">
+  <div class="confirm-dialog" style="max-width:600px;text-align:left">
+    <h3 style="font-size:16px;font-weight:600;color:#1f2937;margin-bottom:12px">关联到主线</h3>
+    <p id="linkStepHint" style="font-size:13px;color:#6b7280;margin-bottom:12px">请选择要关联的方向：</p>
+    <div class="link-selector">
+      <div class="ls-col" id="lsDirections"></div>
+      <div class="ls-col" id="lsSubgoals" style="display:none"></div>
+    </div>
+    <div class="flex items-center justify-between mt-4">
+      <span id="linkStatus" style="font-size:12px;color:#9ca3af"></span>
+      <button class="btn btn-primary px-5 py-2" id="btnLinkConfirm" disabled>确认关联</button>
+    </div>
+  </div>
+</div>
+
+<!-- 搜索关联日记模态框 -->
+<div class="confirm-overlay" id="searchDiaryOverlay">
+  <div class="confirm-dialog" style="max-width:520px;text-align:left">
+    <h3 style="font-size:16px;font-weight:600;color:#1f2937;margin-bottom:12px">添加关联日记</h3>
+    <input type="text" id="searchDiaryInput" class="settings-input" placeholder="搜索日记标题或内容…" style="margin-bottom:10px">
+    <div id="searchDiaryList" style="max-height:320px;overflow-y:auto"></div>
+    <div class="flex items-center justify-end gap-2 mt-4">
+      <button class="btn btn-ghost px-4 py-2" id="btnSearchDiaryCancel">取消</button>
+      <button class="btn btn-primary px-5 py-2" id="btnSearchDiaryConfirm">添加选中</button>
+    </div>
+  </div>
+</div>
+
+<!-- 编辑方向模态框 -->
+<div class="confirm-overlay" id="editMainlineOverlay">
+  <div class="confirm-dialog" style="max-width:420px;text-align:left">
+    <h3 style="font-size:16px;font-weight:600;color:#1f2937;margin-bottom:16px">编辑方向</h3>
+    <div class="settings-field">
+      <label for="editMlTitle">方向名称 <span style="color:#ef4444">*</span></label>
+      <input type="text" id="editMlTitle" class="settings-input" maxlength="60">
+    </div>
+    <div class="settings-field">
+      <label for="editMlDesc">描述</label>
+      <textarea id="editMlDesc" class="settings-input" rows="3" style="resize:vertical;min-height:60px" maxlength="200"></textarea>
+    </div>
+    <div class="flex items-center justify-end gap-2 mt-4">
+      <button class="btn btn-ghost px-4 py-2" id="btnEditMlCancel">取消</button>
+      <button class="btn btn-primary px-5 py-2" id="btnEditMlSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 删除确认对话框 -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-dialog">
+    <p>确定要删除这篇日记吗？<br>删除后无法恢复。</p>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost px-5 py-2" id="confirmCancel">取消</button>
+      <button class="btn px-5 py-2" style="background:#ef4444;color:#fff;border-radius:7px;font-size:13px;font-weight:500;border:none;cursor:pointer;font-family:inherit;" id="confirmOk">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   日记应用 — 增删改查逻辑
+   ═══════════════════════════════════════════════════════════════ */
+
+const STORAGE_KEY = 'diary_entries';
+const DRAFT_KEY     = 'diary_draft';
+const SETTINGS_KEY  = 'diary_settings';
+const MAINLINES_KEY = 'goal_mainlines';
+const CATEGORIES_KEY = 'diary_categories';
+const AUTO_DRAFT_DELAY = 5000;  // 5 秒无操作后自动保存草稿
+
+/** API 厂商配置 */
+const AI_VENDORS = {
+  deepseek: {
+    label:  'DeepSeek',
+    apiUrl: 'https://api.deepseek.com',
+    models: ['deepseek-flash', 'deepseek-v4-pro'],
+  },
+  zhipu: {
+    label:  '智谱GLM',
+    apiUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    models: ['glm-4.5-air', 'glm-4-plus'],
+  },
+};
+
+const DEFAULT_SETTINGS = {
+  vendor: 'deepseek',
+  apiKey: '',
+  apiUrl: AI_VENDORS.deepseek.apiUrl,
+  model:  AI_VENDORS.deepseek.models[0],
+};
+
+const SINGLE_DIARY_SYSTEM_PROMPT = `你是专业的思考整理助手，基于用户的日记内容客观提炼信息，不演绎、不煽情、不额外发挥。
+严格按以下固定结构返回，不要添加多余标题和解释：
+【核心观点】
+- 第1条最关键的思考或结论
+- 第2条最关键的思考或结论
+（2-3条即可，提炼本质，不要复述原文）
+
+【关键词】
+标签1、标签2、标签3、标签4、标签5
+（3-5个精准标签，用顿号分隔）
+
+【情绪倾向】
+一句话描述整体情绪状态，不超过20字
+
+【行动项】
+- 具体可落地的事项1
+- 具体可落地的事项2
+（没有明确行动项则填"无"）
+
+确保核心观点完整覆盖原文的主要思考结论和关键洞察，不遗漏任何一条重要信息。
+
+额外任务：判断本篇日记是否与用户的思考主线目标相关。
+用户当前活跃目标列表（JSON格式）：{goals_context}
+如果日记内容与某个目标相关，请在输出末尾追加一行：
+【关联建议】目标ID:{目标id}, 目标名称:{目标标题}, 建议进展:{一句具体的进展概括}
+如果不相关，则不输出此字段。
+注意：只输出与日记最相关的一个目标。如果没有明确相关的目标，不要强行关联。`;
+
+/** 构建单篇提炼系统提示词（注入目标上下文） */
+function buildSingleDiaryPrompt() {
+  const activeGoals = mainlines.filter(m => m.status === 'active').map(m => ({ id: m.id, title: m.title }));
+  const goalsContext = activeGoals.length > 0 ? JSON.stringify(activeGoals) : '暂无活跃目标';
+  return SINGLE_DIARY_SYSTEM_PROMPT.replace('{goals_context}', goalsContext);
+}
+
+const FRAMEWORK_SYSTEM_PROMPT = `你是思考架构师，请将用户提供的多篇零散日记聚合为一套结构化的思考框架。
+要求：
+1. 不要罗列日记原文，做归纳和抽象，提炼共性主题
+2. 每个主题下梳理：核心结论、反复出现的困惑、认知上的变化
+3. 最后总结待深入的问题和可推进的方向
+4. 用 Markdown 分级标题输出，逻辑递进清晰，层级不超过三级
+5. 语言精炼，避免空话套话，基于日记内容，不凭空杜撰
+
+输出固定结构：
+## 一、核心主题总览
+（一段话概括这段时间思考的主线）
+
+## 二、分主题拆解
+### 主题1：XXX
+- 核心结论：
+- 反复出现的关注点：
+- 认知变化：
+
+### 主题2：XXX
+- 核心结论：
+- 反复出现的关注点：
+- 认知变化：
+
+## 三、待探索的问题与下一步方向
+- 问题1：
+- 可推进方向1：`;
+
+const GOAL_REVIEW_SYSTEM_PROMPT = `你是个人成长复盘教练，请基于用户提供的与某个主线目标相关的日记记录，生成一份目标复盘报告。
+要求：
+1. 不要罗列日记原文，做归纳和抽象
+2. 语言简洁有力，有洞察，不空泛
+3. 基于日记内容，不凭空杜撰
+4. 用 Markdown 分级标题输出，层级不超过三级
+
+输出固定结构：
+## 一、目标达成概览
+（一段话概括该目标在这段时间的整体进展状态，点出最显著的成果或变化）
+
+## 二、关键进展与突破
+- 进展1：（具体描述，标注来源于哪一天的日记）
+- 进展2：
+（列出2-5个最重要的进展或突破，不追求数量，只列有实质内容的）
+
+## 三、遇到的阻碍与认知变化
+- 阻碍/困惑：
+- 认知变化：
+（如果日记中有体现反复出现的困难、思维转变、新认识，在此归纳）
+
+## 四、下一步建议方向
+- 建议1：（基于已有进展和阻碍，给出可推进的具体方向）
+- 建议2：
+（2-3条即可，不是命令而是启发式建议）`;
+
+const DEFAULT_CATEGORIES = ['工作思考', '生活感悟', '学习笔记', '情绪记录'];
+let categories = [...DEFAULT_CATEGORIES];
+
+const CATEGORY_COLOR = {
+  '工作思考': 'tag-blue',
+  '生活感悟': 'tag-green',
+  '学习笔记': 'tag-purple',
+  '情绪记录': 'tag-orange',
+};
+
+const WEEKDAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
+
+/* ── 状态 ── */
+let entries = [];
+let entryMap = new Map();  // id → entry O(1) 查找
+let currentId = null;      // null = 新建模式
+
+/** 重建日记 Map（每次 entries 变更后调用） */
+function rebuildEntryMap() { entryMap = new Map(entries.map(e => [e.id, e])); }
+let draftTimer = null;    // 自动草稿计时器
+let isAiLoading = false;  // AI 请求进行中
+let aiAbortController = null;  // 用于取消 AI 请求
+
+/* ── 筛选状态 ── */
+let filterCategory  = '';
+let filterDateFrom  = '';
+let filterDateTo    = '';
+
+/* ── DOM 引用 ── */
+const $list    = document.getElementById('diaryList');
+const $date    = document.getElementById('editorDate');
+const $weekday = document.getElementById('editorWeekday');
+const $title   = document.getElementById('editorTitle');
+const $cat     = document.getElementById('editorCategory');
+const $content = document.getElementById('editorContent');
+const $status  = document.getElementById('saveStatus');
+const $toast   = document.getElementById('toast');
+const $overlay = document.getElementById('confirmOverlay');
+const $draftBanner  = document.getElementById('draftBanner');
+const $draftTime    = document.getElementById('draftTime');
+const $draftDot     = document.getElementById('draftDot');
+const $saveStatusText = document.getElementById('saveStatusText');
+const $filterCat      = document.getElementById('filterCategory');
+const $filterFrom     = document.getElementById('filterDateFrom');
+const $filterTo       = document.getElementById('filterDateTo');
+const $filterCount    = document.getElementById('filterCount');
+const $aiCard       = document.getElementById('aiResultCard');
+const $aiStreaming  = document.getElementById('aiStreaming');
+const $aiStructured = document.getElementById('aiStructured');
+const $aiCoreIdeas  = document.getElementById('aiCoreIdeas');
+const $aiKeywords   = document.getElementById('aiKeywords');
+const $aiSentiment  = document.getElementById('aiSentiment');
+const $aiActionItems = document.getElementById('aiActionItems');
+const $aiSpinner    = document.getElementById('aiSpinner');
+const $btnAi        = document.getElementById('btnAiAnalyze');
+const $btnSaveAi    = document.getElementById('btnSaveAi');
+const $settingsOverlay = document.getElementById('settingsOverlay');
+const $settingsVendor  = document.getElementById('settingsVendor');
+const $settingsApiKey  = document.getElementById('settingsApiKey');
+const $settingsApiUrl  = document.getElementById('settingsApiUrl');
+const $settingsModel   = document.getElementById('settingsModel');
+
+/* ── 思考框架 DOM ── */
+const $editorView    = document.getElementById('editorView');
+const $frameworkView = document.getElementById('frameworkView');
+const $fwResultCard  = document.getElementById('fwResultCard');
+const $fwEmptyHint   = document.getElementById('fwEmptyHint');
+const $fwMdContent   = document.getElementById('fwMdContent');
+const $fwSpinner     = document.getElementById('fwSpinner');
+const $fwCopyBar     = document.getElementById('fwCopyBar');
+const $fwDateFrom    = document.getElementById('fwDateFrom');
+const $fwDateTo      = document.getElementById('fwDateTo');
+const $fwCategory    = document.getElementById('fwCategory');
+const $customRange   = document.getElementById('customDateRange');
+
+/* ── 思考主线 DOM ── */
+const $mainlineView     = document.getElementById('mainlineView');
+const $mainlineList     = document.getElementById('mainlineList');
+const $mlModalOverlay   = document.getElementById('mainlineModalOverlay');
+const $mlTitle          = document.getElementById('mlTitle');
+const $mlDesc           = document.getElementById('mlDesc');
+
+/* ── 主线详情 DOM ── */
+const $mlListMode      = document.getElementById('mlListMode');
+const $mlDetailMode    = document.getElementById('mlDetailMode');
+const $detailTitle     = document.getElementById('detailTitle');
+const $detailDesc      = document.getElementById('detailDesc');
+const $subgoalList     = document.getElementById('subgoalList');
+const $sgModalOverlay  = document.getElementById('subgoalModalOverlay');
+const $sgTitle         = document.getElementById('sgTitle');
+
+/* ── 进展 + 日记关联 DOM ── */
+const $prModalOverlay = document.getElementById('progressModalOverlay');
+const $prContent      = document.getElementById('prContent');
+const $linkDiaryOverlay = document.getElementById('linkDiaryOverlay');
+const $lsDirections   = document.getElementById('lsDirections');
+const $lsSubgoals     = document.getElementById('lsSubgoals');
+const $btnLinkConfirm = document.getElementById('btnLinkConfirm');
+const $linkStatus     = document.getElementById('linkStatus');
+const $linkStepHint   = document.getElementById('linkStepHint');
+const $searchDiaryOverlay = document.getElementById('searchDiaryOverlay');
+const $searchDiaryInput  = document.getElementById('searchDiaryInput');
+const $searchDiaryList   = document.getElementById('searchDiaryList');
+const $relatedDiaryList  = document.getElementById('relatedDiaryList');
+
+let pendingProgressSgId = null;     // 待添加进展的子目标 ID
+let linkSelectedDirId  = null;      // 关联：选中方向 ID
+let linkSelectedSgId   = null;      // 关联：选中子目标 ID（null=仅关联方向）
+let searchCheckedIds   = new Set(); // 搜索关联：勾选的日记 ID
+
+/* ── 目标复盘 DOM + 状态 ── */
+const $btnGoalReview   = document.getElementById('btnGoalReview');
+const $reviewCard      = document.getElementById('reviewResultCard');
+const $reviewMd        = document.getElementById('reviewMdContent');
+const $reviewSpinner   = document.getElementById('reviewSpinner');
+const $reviewCopyBar   = document.getElementById('reviewCopyBar');
+let reviewRawMarkdown  = '';     // 复盘原始 Markdown
+let isReviewGenerating = false;  // 复盘生成中标志
+
+/* ── 编辑方向 DOM ── */
+const $editMlOverlay = document.getElementById('editMainlineOverlay');
+const $editMlTitle   = document.getElementById('editMlTitle');
+const $editMlDesc    = document.getElementById('editMlDesc');
+
+let frameworkTimeRange = '7d';  // '7d' | 'month' | 'custom'
+let fwRawMarkdown = '';         // AI 返回的原始 Markdown
+
+/* ── 思考主线状态 ── */
+let mainlines = [];
+let currentMainlineId = null;        // 当前详情页打开的方向 ID
+let expandedSubGoals  = new Set();   // 当前展开的子目标 ID 集合
+
+let pendingDeleteId = null;
+
+function loadCategories() {
+  let saved = [];
+  try {
+    const raw = localStorage.getItem(CATEGORIES_KEY);
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) saved = parsed;
+    }
+  } catch (e) {
+    showToast('分类设置读取失败，已保留日记中的分类');
+  }
+  categories = [...new Set([...DEFAULT_CATEGORIES, ...saved, ...entries.map(e => e && e.category)]
+    .filter(c => typeof c === 'string' && c.trim()).map(c => c.trim()))];
+  renderCategoryOptions();
+}
+
+function saveCategories() {
+  localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
+}
+
+function renderCategoryOptions() {
+  const configs = [
+    [$cat, '选择分类…'],
+    [$filterCat, '📂 全部分类'],
+    [$fwCategory, '全部分类'],
+  ];
+  for (const [select, placeholder] of configs) {
+    const selected = select.value;
+    select.replaceChildren(new Option(placeholder, ''), ...categories.map(c => new Option(c, c)));
+    select.value = categories.includes(selected) ? selected : '';
+  }
+  renderCategoryList();
+}
+
+function renderCategoryList() {
+  const list = document.getElementById('categoryList');
+  list.replaceChildren();
+  for (const category of categories) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:3px 0';
+    const label = document.createElement('span');
+    label.textContent = category;
+    row.appendChild(label);
+    if (!DEFAULT_CATEGORIES.includes(category)) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn btn-ghost px-2 py-1';
+      button.textContent = '删除';
+      button.addEventListener('click', () => removeCategory(category));
+      row.appendChild(button);
+    }
+    list.appendChild(row);
+  }
+}
+
+function addCategory() {
+  const input = document.getElementById('newCategoryInput');
+  const category = input.value.trim();
+  if (!category) { showToast('请输入分类名称'); return; }
+  if (categories.includes(category)) { showToast('分类已存在'); return; }
+  categories.push(category);
+  saveCategories();
+  renderCategoryOptions();
+  input.value = '';
+  showToast('分类已添加');
+}
+
+function removeCategory(category) {
+  if (DEFAULT_CATEGORIES.includes(category)) return;
+  if (entries.some(e => e.category === category)) {
+    showToast('该分类已有日记，无法删除');
+    return;
+  }
+  categories = categories.filter(c => c !== category);
+  saveCategories();
+  renderCategoryOptions();
+  filterCategory = $filterCat.value;
+  renderList();
+  showToast('分类已删除');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   localStorage 读写
+   ═══════════════════════════════════════════════════════════════ */
+
+function loadFromStorage() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw === null) {
+    entries = [];
+  } else {
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) throw new Error('日记数据不是数组');
+      entries = parsed;
+    } catch (e) {
+      entries = [];
+      showToast('日记数据读取失败，请先保留浏览器原始数据以便排查');
+    }
+  }
+  rebuildEntryMap();
+}
+
+function saveToStorage() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    rebuildEntryMap();
+  } catch (e) {
+    showToast('保存失败：浏览器存储不可用或空间已满，请导出备份');
+    throw e;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   自动草稿
+   ═══════════════════════════════════════════════════════════════ */
+
+function saveDraft() {
+  const data = readFromEditor();
+  const hasContent = data.title || data.content || data.category;
+  if (!hasContent) {
+    clearDraft();
+    return;
+  }
+  const draft = {
+    date:      data.date,
+    category:  data.category,
+    title:     data.title,
+    content:   data.content,
+    currentId: currentId,
+    savedAt:   new Date().toISOString(),
+  };
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  // 闪烁绿点表示已保存
+  $draftDot.classList.remove('hidden');
+  $draftDot.classList.add('saved');
+  setTimeout(() => $draftDot.classList.remove('saved'), 1200);
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
+  $draftDot.classList.add('hidden');
+  $draftDot.classList.remove('saved');
+  hideDraftBanner();
+}
+
+function loadDraft() {
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
+function hasDraft() {
+  return loadDraft() !== null;
+}
+
+function scheduleAutoDraft() {
+  // 显示橙点表示"有未保存变更"
+  $draftDot.classList.remove('hidden', 'saved');
+  // 重置计时器
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraft, AUTO_DRAFT_DELAY);
+}
+
+function showDraftBanner(draft) {
+  if (!draft) return;
+  $draftTime.textContent = formatDateTime(draft.savedAt);
+  $draftBanner.classList.remove('hidden');
+}
+
+function hideDraftBanner() {
+  $draftBanner.classList.add('hidden');
+}
+
+function restoreDraft() {
+  const draft = loadDraft();
+  if (!draft) return;
+  currentId       = draft.currentId;
+  $date.value     = draft.date;
+  updateWeekday(draft.date);
+  $title.value    = draft.title;
+  $cat.value      = draft.category;
+  $content.value  = draft.content;
+  $saveStatusText.textContent = '';
+  hideDraftBanner();
+  $draftDot.classList.remove('hidden', 'saved');
+  renderList();
+  showToast('草稿已恢复');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   渲染列表
+   ═══════════════════════════════════════════════════════════════ */
+
+function renderList() {
+  // ── 应用筛选 ──
+  let filtered = [...entries];
+
+  if (filterCategory) {
+    filtered = filtered.filter(e => e.category === filterCategory);
+  }
+  if (filterDateFrom) {
+    filtered = filtered.filter(e => e.date >= filterDateFrom);
+  }
+  if (filterDateTo) {
+    filtered = filtered.filter(e => e.date <= filterDateTo);
+  }
+
+  // 按日期倒序
+  filtered.sort((a, b) => b.date.localeCompare(a.date));
+
+  // 筛选计数
+  const hasFilter = filterCategory || filterDateFrom || filterDateTo;
+  if (hasFilter) {
+    $filterCount.textContent = `${filtered.length} 篇`;
+  } else {
+    $filterCount.textContent = entries.length ? `${entries.length} 篇` : '';
+  }
+
+  // ── 空列表（没有任何日记） ──
+  if (entries.length === 0) {
+    $list.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-20 text-ink-400">
+        <svg class="w-10 h-10 mb-3 text-ink-300" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path>
+        </svg>
+        <p class="text-sm">还没有日记</p>
+        <p class="text-xs mt-1 text-ink-400">点击右上角「+ 新建日记」开始写第一篇</p>
+      </div>`;
+    // 同步更新编辑器占位符
+    updateTitlePlaceholder();
+    return;
+  }
+
+  // ── 筛选后无结果 ──
+  if (filtered.length === 0) {
+    $list.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-16 text-ink-400">
+        <svg class="w-8 h-8 mb-3 text-ink-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+        <p class="text-sm">没有匹配的日记</p>
+        <p class="text-xs mt-1 text-ink-400">试试调整筛选条件</p>
+      </div>`;
+    return;
+  }
+
+  const maxLen = 80;
+  $list.innerHTML = filtered.map(e => {
+    const isActive = e.id === currentId;
+    const preview  = (e.content || '').replace(/\n/g, ' ').slice(0, maxLen);
+    const tagClass = CATEGORY_COLOR[e.category] || '';
+
+    return `
+      <div class="diary-item ${isActive ? 'active' : ''} rounded-card px-4 py-3.5 mb-1.5"
+           data-id="${e.id}" onclick="selectEntry('${e.id}')">
+        <button class="delete-btn" title="删除" onclick="event.stopPropagation(); askDelete('${e.id}')">&times;</button>
+        <h3 class="text-sm font-medium leading-relaxed pr-6 ${isActive ? 'text-ink-800' : 'text-ink-700'}">
+          ${escHtml(e.title || '无标题')}
+        </h3>
+        <p class="text-xs text-ink-400 leading-relaxed mt-1 mb-2 line-clamp-2">${escHtml(preview)}</p>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-ink-400">${e.date}</span>
+          ${e.category ? `<span class="text-xs px-2 py-0.5 rounded-full ${tagClass}">${escHtml(e.category)}</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  // 同步更新编辑器占位符
+  updateTitlePlaceholder();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   编辑区操作
+   ═══════════════════════════════════════════════════════════════ */
+
+function selectEntry(id) {
+  const entry = entryMap.get( id);
+  if (!entry) return;
+  switchView('editor'); // 确保切回编辑视图
+  currentId = id;
+  loadIntoEditor(entry);
+  renderList();
+  closeSidebar(); // 移动端选完日记关闭抽屉
+}
+
+function updateTitlePlaceholder() {
+  if (entries.length === 0) {
+    $title.placeholder = '今天发生了什么新鲜事？';
+    $content.placeholder = '不必写得多好，真实就好…';
+  } else {
+    $title.placeholder = '给这篇日记起个标题…';
+    $content.placeholder = '开始写点什么…';
+  }
+}
+
+function newEntry(options = {}) {
+  switchView('editor'); // 确保切回编辑视图
+  currentId = null;
+  const today = toDateStr(new Date());
+  $date.value    = today;
+  updateWeekday(today);
+  $title.value   = '';
+  $cat.value     = '';
+  $content.value = '';
+  $saveStatusText.textContent = '';
+  if (!options.preserveDraft) clearDraft();
+  hideDraftBanner();
+  hideAiCard();
+  window._pendingSuggestion = null;
+  updateTitlePlaceholder();
+  renderList();
+}
+
+function loadIntoEditor(entry) {
+  $date.value    = entry.date;
+  updateWeekday(entry.date);
+  $title.value   = entry.title;
+  $cat.value     = entry.category;
+  $content.value = entry.content || '';
+  $title.placeholder = '给这篇日记起个标题…';
+  $content.placeholder = '开始写点什么…';
+  if (entry.updatedAt) {
+    $saveStatusText.textContent = '最后保存：' + formatDateTime(entry.updatedAt);
+  } else {
+    $saveStatusText.textContent = '';
+  }
+
+  // 恢复已有 AI 分析结果
+  hideAiCard();
+  if (entry.summary && (entry.summary.coreIdeas || entry.summary.keywords?.length || entry.summary.sentiment)) {
+    displayAiResult(entry.summary);
+    $aiStreaming.classList.add('hidden');
+    $aiStructured.classList.remove('hidden');
+    $aiCard.classList.remove('hidden');
+    $btnSaveAi.disabled = false;
+    if (entry.summary.stale) document.getElementById('aiStaleNotice').classList.remove('hidden');
+  }
+  // 恢复关联建议暂存
+  window._pendingSuggestion = (entry.summary && entry.summary.suggestion) ? entry.summary.suggestion : null;
+  renderSuggestionBar();
+}
+
+function readFromEditor() {
+  return {
+    date:     $date.value,
+    category: $cat.value,
+    title:    $title.value.trim(),
+    content:  $content.value,
+  };
+}
+
+function saveEntry() {
+  const data = readFromEditor();
+
+  if (!data.title && !data.content) {
+    showToast('请至少填写标题或正文内容');
+    return;
+  }
+
+  const now = new Date().toISOString();
+  let saveMessage;
+
+  if (currentId) {
+    // 更新已有日记
+    const entry = entryMap.get( currentId);
+    if (!entry) return;
+    if ((entry.title !== data.title || entry.content !== data.content) && entry.summary &&
+        (entry.summary.coreIdeas || entry.summary.keywords?.length || entry.summary.sentiment || entry.summary.actionItems?.length)) {
+      entry.summary.stale = true;
+      if (entry.summary.suggestion?.confirmed === false) entry.summary.suggestion = null;
+      window._pendingSuggestion = null;
+      document.getElementById('aiStaleNotice').classList.remove('hidden');
+    }
+    entry.date      = data.date;
+    entry.category  = data.category;
+    entry.title     = data.title;
+    entry.content   = data.content;
+    entry.updatedAt = now;
+    $saveStatusText.textContent = '最后保存：' + formatDateTime(now);
+    saveMessage = '日记已保存';
+  } else {
+    // 新建日记
+    const newEntry = {
+      id:        crypto.randomUUID(),
+      date:      data.date,
+      category:  data.category,
+      title:     data.title,
+      content:   data.content,
+      createdAt: now,
+      updatedAt: now,
+      summary:   { aiTitle: '', aiTags: [], aiReflection: '' },
+    };
+    entries.push(newEntry);
+    currentId = newEntry.id;
+    $saveStatusText.textContent = '最后保存：' + formatDateTime(now);
+    saveMessage = '日记已创建';
+  }
+
+  saveToStorage();
+  clearDraft();
+  renderList();
+  updateBadge();
+  showToast(saveMessage);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   删除操作
+   ═══════════════════════════════════════════════════════════════ */
+
+function resetConfirmDialog() {
+  const ok = document.getElementById('confirmOk');
+  const cancel = document.getElementById('confirmCancel');
+  ok.onclick = confirmDelete;
+  cancel.onclick = cancelDelete;
+  ok.style.display = '';
+  ok.textContent = '确认删除';
+  cancel.textContent = '取消';
+  document.querySelector('#confirmOverlay p').innerHTML = '确定要删除这篇日记吗？<br>删除后无法恢复。';
+}
+
+function askDelete(id) {
+  resetConfirmDialog();
+  pendingDeleteId = id;
+  $overlay.classList.add('show');
+}
+
+function confirmDelete() {
+  if (!pendingDeleteId) return;
+  const id = pendingDeleteId;
+  pendingDeleteId = null;
+  $overlay.classList.remove('show');
+
+  // ── 同步清理主线关联数据 ──
+  let mlChanged = false;
+  for (const ml of mainlines) {
+    const beforeLen = (ml.relatedDiaryIds || []).length;
+    ml.relatedDiaryIds = (ml.relatedDiaryIds || []).filter(did => did !== id);
+    if (ml.relatedDiaryIds.length !== beforeLen) { ml.updatedAt = new Date().toISOString(); mlChanged = true; }
+
+    for (const sg of (ml.subGoals || [])) {
+      const sgBefore = (sg.progressEntries || []).length;
+      sg.progressEntries = (sg.progressEntries || []).filter(p => p.diaryId !== id);
+      if (sg.progressEntries.length !== sgBefore) { ml.updatedAt = new Date().toISOString(); mlChanged = true; }
+    }
+  }
+  if (mlChanged) saveMainlines();
+
+  entries = entries.filter(e => e.id !== id);
+  if (currentId === id) {
+    newEntry();
+  }
+  saveToStorage();
+  renderList();
+  // 若当前在详情页且依赖被删日记，刷新
+  if (currentMainlineId) {
+    const m = mainlines.find(ml => ml.id === currentMainlineId);
+    if (m) renderMainlineDetail();
+  }
+  updateBadge();
+  showToast('日记已删除');
+}
+
+function cancelDelete() {
+  pendingDeleteId = null;
+  $overlay.classList.remove('show');
+  resetConfirmDialog();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   日期工具
+   ═══════════════════════════════════════════════════════════════ */
+
+function toDateStr(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function updateWeekday(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) {
+    $weekday.textContent = '';
+    return;
+  }
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const wd = WEEKDAY_NAMES[d.getDay()];
+  $weekday.textContent = `${y} 年 ${m} 月 ${day} 日 · 星期${wd}`;
+}
+
+function formatDateTime(isoStr) {
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return '';
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const h = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${m}月${day}日 ${h}:${mi}`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   设置面板
+   ═══════════════════════════════════════════════════════════════ */
+
+function loadSettings() {
+  const raw = localStorage.getItem(SETTINGS_KEY);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return { ...DEFAULT_SETTINGS, ...parsed };
+    } catch (e) { /* fall through */ }
+  }
+  return { ...DEFAULT_SETTINGS };
+}
+
+function saveSettings(settings) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+/** 填充模型下拉列表 */
+function populateModelOptions(vendor, selectedModel) {
+  const cfg = AI_VENDORS[vendor] || AI_VENDORS.deepseek;
+  $settingsModel.innerHTML = cfg.models.map(m =>
+    `<option value="${m}" ${m === selectedModel ? 'selected' : ''}>${m}</option>`
+  ).join('');
+}
+
+/** 厂商切换：更新地址 + 模型列表 */
+function onVendorChange() {
+  const vendor = $settingsVendor.value;
+  const cfg    = AI_VENDORS[vendor] || AI_VENDORS.deepseek;
+  $settingsApiUrl.value       = cfg.apiUrl;
+  $settingsApiUrl.placeholder = cfg.apiUrl;
+  populateModelOptions(vendor, cfg.models[0]);
+}
+
+function openSettings() {
+  renderCategoryList();
+  const s = loadSettings();
+  $settingsVendor.value = s.vendor || 'deepseek';
+  $settingsApiKey.value = s.apiKey || '';
+  $settingsApiUrl.value = s.apiUrl || AI_VENDORS[s.vendor || 'deepseek'].apiUrl;
+  populateModelOptions(s.vendor || 'deepseek', s.model);
+  $settingsOverlay.classList.add('show');
+}
+
+function closeSettings() {
+  $settingsOverlay.classList.remove('show');
+}
+
+function applySettings() {
+  const vendor = $settingsVendor.value;
+  const settings = {
+    vendor: vendor,
+    apiKey: $settingsApiKey.value.trim(),
+    apiUrl: $settingsApiUrl.value.trim() || AI_VENDORS[vendor].apiUrl,
+    model:  $settingsModel.value,
+  };
+  saveSettings(settings);
+  closeSettings();
+  showToast('设置已保存');
+}
+
+/** 导出所有数据（日记 + 主线）为 JSON 文件 */
+/** 导出所有数据（不含 API 配置） */
+function exportData() {
+  const payload = {
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    data: {
+      diary_entries: entries,
+      goal_mainlines: mainlines,
+      diary_categories: categories,
+    }
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `思录备份_${toDateStr(new Date())}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('数据已导出');
+}
+
+/** 导入数据（需用户确认，覆盖当前数据） */
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    let diaryEntries, goalMainlines, importedCategories;
+    try {
+      const raw = JSON.parse(e.target.result);
+
+      // 新格式 { version, exportedAt, data: { diary_entries, goal_mainlines } }
+      if (raw && raw.data) {
+        diaryEntries  = raw.data.diary_entries;
+        goalMainlines = raw.data.goal_mainlines;
+        importedCategories = raw.data.diary_categories;
+      }
+      // 兼容旧格式 { entries, goals }
+      else if (raw && raw.entries) {
+        diaryEntries = raw.entries;
+        goalMainlines = raw.goals;
+        importedCategories = raw.categories;
+      }
+      // 兼容纯日记数组
+      else if (Array.isArray(raw)) {
+        diaryEntries = raw;
+        goalMainlines = null;
+      }
+      else {
+        throw new Error('无法识别的数据格式');
+      }
+
+      const safeId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
+      if (!Array.isArray(diaryEntries) || !diaryEntries.every(e => e && safeId(e.id) && /^\d{4}-\d{2}-\d{2}$/.test(e.date))) throw new Error('日记数据格式异常');
+      if (goalMainlines != null && (!Array.isArray(goalMainlines) || !goalMainlines.every(m =>
+        m && safeId(m.id) && Array.isArray(m.subGoals || []) && (m.subGoals || []).every(sg =>
+          sg && safeId(sg.id) && Array.isArray(sg.progressEntries || []) &&
+          (sg.progressEntries || []).every(p => p && safeId(p.id))
+        )
+      ))) throw new Error('主线数据格式异常');
+      if (importedCategories != null && !Array.isArray(importedCategories)) throw new Error('分类数据格式异常');
+    } catch (err) {
+      showToast('导入失败：' + err.message);
+      return;
+    }
+
+    // 二次确认
+    resetConfirmDialog();
+    document.querySelector('#confirmOverlay p').innerHTML = '将覆盖当前所有日记和思考主线数据，<br><span style="font-size:12px;color:#ef4444">此操作不可撤销。建议先导出备份。确认继续吗？</span>';
+    document.getElementById('confirmOk').onclick = function() {
+      entries = diaryEntries;
+      saveToStorage();
+      categories = [...new Set([...DEFAULT_CATEGORIES, ...(importedCategories || []), ...entries.map(e => e && e.category)]
+        .filter(c => typeof c === 'string' && c.trim()).map(c => c.trim()))];
+      saveCategories();
+      renderCategoryOptions();
+      if (Array.isArray(goalMainlines)) {
+        mainlines = goalMainlines;
+        saveMainlines();
+      }
+      renderList();
+      renderMainlines();
+      newEntry();
+      updateBadge();
+      $overlay.classList.remove('show');
+      showToast(`已恢复 ${entries.length} 篇日记${goalMainlines ? '，' + goalMainlines.length + ' 个思考主线方向' : ''}`);
+      document.getElementById('confirmOk').onclick = confirmDelete;
+    };
+    $overlay.classList.add('show');
+  };
+  reader.readAsText(file);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AI 提炼 — 通用流式调用
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * 通用 AI 流式调用（DeepSeek / 智谱GLM）
+ * 根据设置中的 vendor 自动选择 API 地址和认证方式
+ * @param {string}   userContent  用户消息内容
+ * @param {string}   systemPrompt 系统提示词
+ * @param {Function} onChunk      每收到 delta 时回调 (deltaText, fullText)
+ * @param {string}   [model]      模型名，默认取设置中的模型
+ * @returns {Promise<string>}     完整返回文本
+ */
+async function callAIStream(userContent, systemPrompt, onChunk, model) {
+  const settings = loadSettings();
+  if (!settings.apiKey) {
+    throw new Error('NO_API_KEY');
+  }
+
+  const controller = new AbortController();
+  aiAbortController = controller;
+
+  let response;
+  try {
+    response = await fetch(`${settings.apiUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${settings.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: model || settings.model || DEFAULT_SETTINGS.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user',   content: userContent },
+      ],
+      stream: true,
+      temperature: 0.3,
+    }),
+    signal: controller.signal,
+  });
+
+  } catch (e) {
+    if (e.name === 'AbortError') throw e; // 透传取消信号
+    throw new Error('网络请求失败，请检查 API 地址或网络连接');
+  }
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '');
+    let errMsg = `API 请求失败 (${response.status})`;
+    if (response.status === 401) errMsg = 'API Key 无效，请检查设置';
+    else if (response.status === 404) errMsg = 'API 地址不正确，请检查设置';
+    else if (response.status === 429) errMsg = '请求过于频繁，请稍后再试';
+    throw new Error(errMsg + (errText ? ': ' + errText : ''));
+  }
+
+  // ── SSE 流式解析 ──
+  const reader  = response.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText  = '';
+  let buffer    = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith('data:')) continue;
+      const payload = trimmed.slice(5).trim();
+      if (payload === '[DONE]') break;
+
+      try {
+        const json  = JSON.parse(payload);
+        const delta = json.choices?.[0]?.delta?.content;
+        if (delta) {
+          fullText += delta;
+          if (onChunk) onChunk(delta, fullText);
+        }
+      } catch (e) { /* 跳过无法解析的 SSE 行 */ }
+    }
+  }
+
+  if (!fullText.trim()) throw new Error('模型返回空结果，请重试');
+  return fullText;
+}
+
+/* ── 单篇日记提炼 ── */
+
+function buildDiaryUserPrompt(title, content) {
+  return `日记标题：${title || '无标题'}
+
+日记正文：
+${content}`;
+}
+
+function parseDiaryAiResult(text) {
+  const extractSection = (label) => {
+    const regex = new RegExp(`【${label}】\\s*\\n([\\s\\S]*?)(?=\\n【|$)`, 'i');
+    const m = text.match(regex);
+    if (!m) return '';
+    return m[1].trim();
+  };
+
+  const rawCoreIdeas = extractSection('核心观点');
+  const coreIdeas = rawCoreIdeas
+    .split('\n')
+    .map(s => s.replace(/^-\s*/, '').trim())
+    .filter(Boolean)
+    .join('\n');
+
+  const rawKeywords = extractSection('关键词');
+  const keywords = rawKeywords
+    .replace(/\n/g, '')
+    .split(/[、,，]/)
+    .map(s => s.trim())
+    .filter(s => s && s !== '无');
+
+  const sentiment = extractSection('情绪倾向').replace(/\n/g, ' ').trim();
+
+  const rawActions = extractSection('行动项');
+  const actionItems = rawActions === '无' || rawActions === '' ? [] :
+    rawActions
+      .split('\n')
+      .map(s => s.replace(/^[-•]\s*/, '').trim())
+      .filter(s => s && s !== '无');
+
+  return { coreIdeas, keywords, sentiment, actionItems };
+}
+
+function displayAiResult(data) {
+  $aiCoreIdeas.textContent = data.coreIdeas || '';
+  $aiKeywords.innerHTML = (data.keywords || []).map(k => `<span class="ai-keyword-tag">${escHtml(k)}</span>`).join('');
+  $aiSentiment.textContent = data.sentiment || '';
+  $aiActionItems.innerHTML = (data.actionItems || []).map(a => `<div class="ai-action-item">${escHtml(a)}</div>`).join('');
+}
+
+function openAiEditor() {
+  document.getElementById('aiEditCore').value = $aiCoreIdeas.textContent.trim();
+  document.getElementById('aiEditKeywords').value = Array.from($aiKeywords.querySelectorAll('.ai-keyword-tag')).map(el => el.textContent.trim()).join('、');
+  document.getElementById('aiEditSentiment').value = $aiSentiment.textContent.trim();
+  document.getElementById('aiEditActions').value = Array.from($aiActionItems.querySelectorAll('.ai-action-item')).map(el => el.textContent.trim()).join('\n');
+  document.getElementById('aiEditForm').classList.remove('hidden');
+}
+
+function closeAiEditor() {
+  document.getElementById('aiEditForm').classList.add('hidden');
+}
+
+function applyAiEditor() {
+  displayAiResult({
+    coreIdeas: document.getElementById('aiEditCore').value.trim(),
+    keywords: document.getElementById('aiEditKeywords').value.split(/[、,，]/).map(s => s.trim()).filter(Boolean),
+    sentiment: document.getElementById('aiEditSentiment').value.trim(),
+    actionItems: document.getElementById('aiEditActions').value.split(/\n/).map(s => s.trim()).filter(Boolean),
+  });
+  closeAiEditor();
+}
+
+async function runAiAnalysis() {
+  if (isAiLoading) return;
+
+  const settings = loadSettings();
+  if (!settings.apiKey) {
+    showToast('请先在设置中配置 DeepSeek API Key');
+    openSettings();
+    return;
+  }
+
+  const title   = $title.value.trim();
+  const content = $content.value;
+  if (!title && !content) {
+    showToast('请先写一些内容再分析');
+    return;
+  }
+
+  // ── 进入加载态 ──
+  closeAiEditor();
+  document.getElementById('aiStaleNotice').classList.add('hidden');
+  isAiLoading = true;
+  $btnAi.disabled = true;
+  $btnAi.textContent = '⏳ 分析中…';
+  $aiCard.classList.remove('hidden');
+  $aiStreaming.classList.remove('hidden');
+  $aiStreaming.textContent = '';
+  $aiStructured.classList.add('hidden');
+  $aiSpinner.classList.remove('hidden');
+  $btnSaveAi.disabled = true;
+
+  try {
+    const fullText = await callAIStream(
+      buildDiaryUserPrompt(title, content),
+      buildSingleDiaryPrompt(),
+      function(delta, full) {
+        $aiStreaming.textContent = full;
+      }
+    );
+
+    // ── 解析结构化结果 ──
+    const parsed = parseDiaryAiResult(fullText);
+    displayAiResult(parsed);
+
+    // ── 解析关联建议 ──
+    const sugMatch = fullText.match(/【关联建议】目标ID:([^,]+),\s*目标名称:([^,]+),\s*建议进展:(.+)/);
+    if (sugMatch) {
+      parsed._suggestion = {
+        goalId: sugMatch[1].trim(),
+        goalTitle: sugMatch[2].trim(),
+        summary: sugMatch[3].trim(),
+        confirmed: false,
+      };
+    }
+
+    // 暂存到 window 供确认/忽略使用
+    window._pendingSuggestion = parsed._suggestion || null;
+
+    // ── 显示/隐藏确认条 ──
+    renderSuggestionBar();
+
+    $aiStreaming.classList.add('hidden');
+    $aiStructured.classList.remove('hidden');
+    $btnSaveAi.disabled = false;
+
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      $aiStreaming.textContent = '[请求已取消]';
+    } else if (err.message === 'NO_API_KEY') {
+      showToast('请先在设置中配置 DeepSeek API Key');
+      openSettings();
+      $aiCard.classList.add('hidden');
+    } else {
+      $aiStreaming.textContent = `分析失败：${err.message}`;
+    }
+    $aiStreaming.classList.remove('hidden');
+    $aiStructured.classList.add('hidden');
+  } finally {
+    isAiLoading = false;
+    aiAbortController = null;
+    $btnAi.disabled = false;
+    $btnAi.textContent = '✨ AI 提炼要点';
+    $aiSpinner.classList.add('hidden');
+  }
+}
+
+function hideAiCard() {
+  closeAiEditor();
+  document.getElementById('aiStaleNotice').classList.add('hidden');
+  $aiCard.classList.add('hidden');
+  $aiStreaming.classList.add('hidden');
+  $aiStructured.classList.add('hidden');
+  $btnSaveAi.disabled = true;
+}
+
+function saveAiToDiary() {
+  if (!document.getElementById('aiEditForm').classList.contains('hidden')) applyAiEditor();
+  const coreIdeas = $aiCoreIdeas.textContent.trim();
+  const keywords  = Array.from($aiKeywords.querySelectorAll('.ai-keyword-tag')).map(el => el.textContent.trim());
+  const sentiment = $aiSentiment.textContent.trim();
+  const actionItems = Array.from($aiActionItems.querySelectorAll('.ai-action-item')).map(el => el.textContent.trim());
+
+  if (!currentId) {
+    showToast('请先保存日记，再保存 AI 分析结果');
+    return;
+  }
+
+  const entry = entryMap.get( currentId);
+  if (!entry) return;
+  if (entry.title !== $title.value.trim() || entry.content !== $content.value) {
+    showToast('请先保存日记正文，再保存 AI 结果');
+    return;
+  }
+
+  entry.summary = {
+    aiTitle:      coreIdeas,
+    aiTags:       keywords,
+    aiReflection: `${sentiment}${actionItems.length ? ' | 行动项: ' + actionItems.join('; ') : ''}`,
+    coreIdeas:    coreIdeas,
+    keywords:     keywords,
+    sentiment:    sentiment,
+    actionItems:  actionItems,
+    suggestion:   window._pendingSuggestion || null, // 保留关联建议
+    stale:        false,
+  };
+  saveToStorage();
+  document.getElementById('aiStaleNotice').classList.add('hidden');
+  renderSuggestionBar();
+  updateBadge();
+  showToast('AI 分析已保存到日记');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   思考框架
+   ═══════════════════════════════════════════════════════════════ */
+
+/** 统一视图切换：'editor' | 'framework' | 'mainline' */
+function switchView(view) {
+  // 隐藏所有视图
+  $editorView.classList.add('hidden');
+  $frameworkView.classList.add('hidden');
+  $mainlineView.classList.add('hidden');
+
+  // ── 离开框架/主线时释放大文本缓存 ──
+  if (view !== 'framework') { fwRawMarkdown = ''; $fwMdContent.innerHTML = ''; }
+  if (view !== 'mainline')  { reviewRawMarkdown = ''; }
+
+  // 导航按钮高亮
+  document.querySelectorAll('#btnFramework, #btnMainline').forEach(b => b.classList.remove('nav-active'));
+
+  if (view === 'framework') {
+    $frameworkView.classList.remove('hidden');
+    $frameworkView.scrollTop = 0;
+    document.getElementById('btnFramework').classList.add('nav-active');
+    updateFrameworkDates();
+  } else if (view === 'mainline') {
+    $mainlineView.classList.remove('hidden');
+    $mainlineView.scrollTop = 0;
+    document.getElementById('btnMainline').classList.add('nav-active');
+    currentMainlineId = null;
+    expandedSubGoals.clear();
+    $mlListMode.classList.remove('hidden');
+    $mlDetailMode.classList.add('hidden');
+    renderMainlines();
+  } else {
+    $editorView.classList.remove('hidden');
+    $editorView.scrollTop = 0;
+  }
+}
+
+function switchToFramework() { switchView('framework'); }
+function switchToEditor()   { switchView('editor');   }
+function switchToMainline() { switchView('mainline'); }
+
+function updateFrameworkDates() {
+  const today = new Date();
+  if (frameworkTimeRange === '7d') {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 6);
+    $fwDateFrom.value = toDateStr(d);
+    $fwDateTo.value   = toDateStr(today);
+    $customRange.classList.add('hidden');
+  } else if (frameworkTimeRange === 'month') {
+    $fwDateFrom.value = toDateStr(new Date(today.getFullYear(), today.getMonth(), 1));
+    $fwDateTo.value   = toDateStr(today);
+    $customRange.classList.add('hidden');
+  } else {
+    $customRange.classList.remove('hidden');
+  }
+}
+
+function getFrameworkFilteredEntries() {
+  const from = $fwDateFrom.value;
+  const to   = $fwDateTo.value;
+  const cat  = $fwCategory.value;
+
+  return entries.filter(e => {
+    if (from && e.date < from) return false;
+    if (to   && e.date > to)   return false;
+    if (cat  && e.category !== cat) return false;
+    return true;
+  }).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function renderMarkdown(md) {
+  if (!md) return '';
+  // 简单 Markdown → HTML
+  let html = md
+    // 转义
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // 标题
+    .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    // 粗体 / 斜体
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // 无序列表
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    // 分隔线
+    .replace(/^---$/gm, '<hr>')
+    // 段落：连续的非空非标签行
+    .replace(/\n\n+/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+
+  // 包裹 <li> 序列为 <ul>
+  html = html.replace(/((?:<li>.*?<\/li><br>\s*)+)/g, function(m) {
+    return '<ul>' + m.replace(/<br>\s*$/, '') + '</ul>';
+  });
+
+  return '<p>' + html + '</p>';
+}
+
+/** 原始内容压缩（不调用 AI，直接截取原文段落） */
+function compressRawContent(entry) {
+  const dateLabel = entry.date || '';
+  const catLabel  = entry.category || '';
+  const title     = entry.title || '无标题';
+  const content   = (entry.content || '').trim();
+  if (!content) return `【${dateLabel} ${catLabel}】${title}`;
+
+  const paras = content.split(/\n\n+/).filter(p => p.trim());
+  if (paras.length === 0) return `【${dateLabel} ${catLabel}】${title} — ${content.slice(0, 400)}`;
+
+  const firstPara = paras[0].trim();
+  const lastPara  = paras.length > 1 ? paras[paras.length - 1].trim() : '';
+
+  let compressed = `【${dateLabel} ${catLabel}】${title}\n${firstPara}`;
+  if (compressed.length > 300) compressed = compressed.slice(0, 300) + '…';
+
+  if (lastPara && lastPara !== firstPara) {
+    const tail = '\n' + (lastPara.length > 150 ? lastPara.slice(0, 150) + '…' : lastPara);
+    if (compressed.length + tail.length < 400) compressed += tail;
+  }
+  return compressed;
+}
+
+/**
+ * 压缩单篇日记为框架聚合用的精简文本
+ * - 已有 summary.coreIdeas → 直接复用，不再发原文
+ * - 无 summary → 自动调用单篇提炼，存入 summary，再复用
+ * @param {Object} entry 日记对象
+ * @returns {Promise<string>} 压缩后的文本
+ */
+function compressDiaryForFramework(entry) {
+  const dateLabel = entry.date || '';
+  const catLabel = entry.category || '';
+  if (entry.summary && !entry.summary.stale && entry.summary.coreIdeas) {
+    const kw = (entry.summary.keywords || []).join('、');
+    return `【${dateLabel} ${catLabel}】${entry.title || '无标题'}\n核心观点：${entry.summary.coreIdeas}${kw ? '\n关键词：' + kw : ''}`;
+  }
+  return compressRawContent(entry);
+}
+
+const FRAMEWORK_BATCH_PROMPT = `你是思考资料整理助手。请把这一组日记笔记压缩为可供下一轮汇总的材料，按主题保留主要结论、反复出现的疑问、认知变化和日期证据。不要添加原文没有的事实，不要遗漏少数但重要的不同观点。用精简 Markdown 输出。`;
+
+async function generateFramework() {
+  const filtered = getFrameworkFilteredEntries();
+  if (filtered.length === 0) { showToast('筛选范围内没有日记'); return; }
+  const settings = loadSettings();
+  if (!settings.apiKey) { showToast('请先在设置中配置 API Key'); openSettings(); return; }
+  if (isAiLoading) return;
+
+  isAiLoading = true;
+  fwRawMarkdown = '';
+  $fwEmptyHint.classList.add('hidden');
+  $fwMdContent.classList.remove('hidden');
+  $fwSpinner.classList.remove('hidden');
+  $fwCopyBar.classList.add('hidden');
+  document.getElementById('btnGenerate').disabled = true;
+  document.getElementById('btnGenerate').textContent = '⏳ 分析中…';
+
+  try {
+    const sorted = [...filtered].sort((a, b) => a.date.localeCompare(b.date));
+    let materials = sorted.map((entry, index) => `${index + 1}. ${compressDiaryForFramework(entry)}`);
+    const GROUP_SIZE = 20;
+    let round = 0;
+
+    while (materials.length > GROUP_SIZE) {
+      const groups = [];
+      for (let i = 0; i < materials.length; i += GROUP_SIZE) groups.push(materials.slice(i, i + GROUP_SIZE));
+      const next = [];
+      for (let i = 0; i < groups.length; i++) {
+        $fwMdContent.textContent = `正在汇总 ${filtered.length} 篇日记：第 ${round + 1} 轮，${i + 1}/${groups.length} 组。多篇日记会产生多次 API 调用。`;
+        const result = await callAIStream(
+          `这是第 ${i + 1}/${groups.length} 组资料：\n\n${groups[i].join('\n\n')}`,
+          FRAMEWORK_BATCH_PROMPT,
+          null
+        );
+        if (!result.trim()) throw new Error('分组汇总返回了空结果');
+        next.push(`【第 ${round + 1} 轮第 ${i + 1} 组】\n${result}`);
+      }
+      materials = next;
+      round++;
+    }
+
+    const userContent = `筛选范围 ${$fwDateFrom.value} 至 ${$fwDateTo.value}，共 ${filtered.length} 篇日记。以下材料覆盖该范围内全部日记，请生成结构化思考框架，并保留可追溯的日期证据：\n\n${materials.join('\n\n')}`;
+    $fwMdContent.textContent = '🧠 正在生成思考框架…';
+    fwRawMarkdown = await callAIStream(userContent, FRAMEWORK_SYSTEM_PROMPT, function(delta, full) {
+      $fwMdContent.innerHTML = renderMarkdown(full);
+    });
+    if (!fwRawMarkdown.trim()) throw new Error('模型返回了空结果');
+    $fwMdContent.innerHTML = renderMarkdown(fwRawMarkdown);
+    $fwCopyBar.classList.remove('hidden');
+  } catch (err) {
+    $fwMdContent.textContent = err.name === 'AbortError' ? '请求已取消' : `分析失败：${err.message}`;
+  } finally {
+    isAiLoading = false;
+    aiAbortController = null;
+    $fwSpinner.classList.add('hidden');
+    document.getElementById('btnGenerate').disabled = false;
+    document.getElementById('btnGenerate').textContent = '✨ 生成思考框架';
+  }
+}
+
+function downloadMarkdown() {
+  if (!fwRawMarkdown) return;
+  const blob = new Blob([fwRawMarkdown], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `思考框架_${$fwDateFrom.value}_${$fwDateTo.value}.md`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Markdown 已下载');
+}
+
+async function copyMarkdown() {
+  if (!fwRawMarkdown) return;
+  try {
+    await navigator.clipboard.writeText(fwRawMarkdown);
+    showToast('已复制到剪贴板');
+  } catch (e) {
+    // 降级方案
+    const ta = document.createElement('textarea');
+    ta.value = fwRawMarkdown;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('已复制到剪贴板');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   思考主线
+   ═══════════════════════════════════════════════════════════════ */
+
+/** 从 localStorage 读取思考主线数据 */
+function loadMainlines() {
+  const raw = localStorage.getItem(MAINLINES_KEY);
+  if (raw) { try { mainlines = JSON.parse(raw); } catch (e) { mainlines = []; } }
+  else { mainlines = []; }
+}
+
+function saveMainlines() {
+  localStorage.setItem(MAINLINES_KEY, JSON.stringify(mainlines));
+}
+
+function generateMainlineId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+/** 渲染活跃方向卡片列表 */
+/** 计算活跃状态：返回 { dotColor, label, isMuted } */
+function getActivityStatus(mainline) {
+  if (mainline.status === 'archived' || mainline.status === 'completed') {
+    return { dotColor: '#9ca3af', label: '已归档',   isMuted: true };
+  }
+
+  let latestDate = null;
+  const sgs = mainline.subGoals || [];
+  for (const sg of sgs) {
+    for (const p of (sg.progressEntries || [])) {
+      if (p.date && (!latestDate || p.date > latestDate)) latestDate = p.date;
+    }
+  }
+
+  if (!latestDate) {
+    return { dotColor: '#9ca3af', label: '尚无进展', isMuted: false };
+  }
+
+  // 同步 lastActiveAt
+  if (!mainline.lastActiveAt || mainline.lastActiveAt < latestDate) {
+    mainline.lastActiveAt = latestDate;
+  }
+
+  const daysAgo = (Date.now() - new Date(latestDate).getTime()) / (1000 * 60 * 60 * 24);
+  if (daysAgo <= 7)  return { dotColor: '#10b981', label: '近期活跃',   isMuted: false };
+  if (daysAgo <= 14) return { dotColor: '#f59e0b', label: '近期未更新', isMuted: false };
+  return { dotColor: '#9ca3af', label: '已沉寂', isMuted: true };
+}
+
+function renderMainlines() {
+  const active = mainlines.filter(m => m.status === 'active').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  if (active.length === 0) {
+    $mainlineList.innerHTML = `<div class="mainline-empty">
+      <svg class="w-10 h-10 mb-3 mx-auto text-ink-300" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+      </svg>
+      <p>还没有思考主线</p>
+      <p style="font-size:12px;margin-top:4px">创建一个方向来锚定你的长期关注吧</p>
+    </div>`;
+    return;
+  }
+
+  $mainlineList.innerHTML = active.map(m => {
+    const st = getActivityStatus(m);
+    return `
+    <div class="mainline-card" onclick="openMainlineDetail('${m.id}')" style="cursor:pointer;${st.isMuted ? 'opacity:0.6' : ''}">
+      <div class="card-body">
+        <div class="card-title">${escHtml(m.title)}</div>
+        ${m.description ? `<div class="card-desc">${escHtml(m.description)}</div>` : ''}
+        <div class="card-meta">
+          <span style="display:inline-flex;align-items:center;gap:4px">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${st.dotColor};flex-shrink:0"></span>
+            ${st.label}
+          </span>
+          <span>${(m.subGoals || []).length} 个子目标</span>
+        </div>
+      </div>
+      <button class="btn-archive" onclick="event.stopPropagation(); archiveMainline('${m.id}')" title="归档">归档</button>
+    </div>`;
+  }).join('');
+
+  // ── 已归档折叠区域 ──
+  const archived = mainlines.filter(m => m.status === 'archived' || m.status === 'completed');
+  if (archived.length > 0) {
+    $mainlineList.innerHTML += `
+    <div style="margin-top:20px">
+      <div id="archivedToggle" style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:13px;color:#9ca3af;padding:6px 0" onclick="toggleArchived()">
+        <span id="archivedArrow" style="transition:transform 0.15s">▶</span>
+        已归档方向 (${archived.length})
+      </div>
+      <div id="archivedList" style="display:none;margin-top:8px">
+        ${archived.sort((a,b) => b.updatedAt.localeCompare(a.updatedAt)).map(m => `
+        <div class="mainline-card" onclick="openMainlineDetail('${m.id}')" style="cursor:pointer;opacity:0.5">
+          <div class="card-body">
+            <div class="card-title">${escHtml(m.title)}</div>
+            ${m.description ? `<div class="card-desc">${escHtml(m.description)}</div>` : ''}
+            <div class="card-meta">
+              <span style="color:#9ca3af">● ${m.status === 'completed' ? '已完成' : '已归档'}</span>
+              <span>${(m.subGoals || []).length} 个子目标</span>
+            </div>
+          </div>
+          <button class="btn-archive" style="color:#6b7280" onclick="event.stopPropagation(); reactivateMainline('${m.id}')" title="重新激活">重新激活</button>
+        </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }
+  // 批量保存 lastActiveAt 更新
+  saveMainlines();
+}
+
+/** 切换已归档区域展开/收起 */
+function toggleArchived() {
+  const list = document.getElementById('archivedList');
+  const arrow = document.getElementById('archivedArrow');
+  const isHidden = list.style.display === 'none';
+  list.style.display = isHidden ? 'block' : 'none';
+  arrow.style.transform = isHidden ? 'rotate(90deg)' : '';
+}
+
+/** 重新激活已归档方向 */
+function reactivateMainline(id) {
+  const activeCount = mainlines.filter(m => m.status === 'active').length;
+  if (activeCount >= 5) {
+    showToast('当前已有5个活跃方向，请先归档一个再激活');
+    return;
+  }
+  const m = mainlines.find(ml => ml.id === id);
+  if (!m) return;
+  m.status = 'active';
+  m.updatedAt = new Date().toISOString();
+  saveMainlines();
+  renderMainlines();
+  showToast('已重新激活');
+}
+
+function formatDateLabel(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+/** 活跃方向过载弹窗 */
+function showOverloadDialog() {
+  resetConfirmDialog();
+  document.querySelector('#confirmOverlay p').innerHTML = '活跃主线方向已达上限（5个），<br><span style="font-size:12px;color:#6b7280">请先归档一个旧方向再新建。<br>过多的方向会分散注意力。</span>';
+  document.getElementById('confirmOk').textContent = '查看我的方向';
+  document.getElementById('confirmCancel').textContent = '知道了';
+  document.getElementById('confirmOk').onclick = function() {
+    $overlay.classList.remove('show');
+    closeCreateMainline();
+    switchToMainline();
+    document.getElementById('confirmOk').textContent = '确认删除';
+    document.getElementById('confirmCancel').textContent = '取消';
+    document.getElementById('confirmOk').onclick = confirmDelete;
+  };
+  document.getElementById('confirmCancel').onclick = function() {
+    $overlay.classList.remove('show');
+    document.getElementById('confirmOk').textContent = '确认删除';
+    document.getElementById('confirmCancel').textContent = '取消';
+    document.getElementById('confirmOk').onclick = confirmDelete;
+  };
+  $overlay.classList.add('show');
+}
+
+/** 打开新建模态框 */
+function openCreateMainline() {
+  $mlTitle.value = '';
+  $mlDesc.value  = '';
+  $mlModalOverlay.classList.add('show');
+  $mlTitle.focus();
+}
+
+function closeCreateMainline() {
+  $mlModalOverlay.classList.remove('show');
+}
+
+/** 创建新主线方向 */
+function createMainline() {
+  const title = $mlTitle.value.trim();
+  if (!title) {
+    showToast('请输入方向名称');
+    return;
+  }
+
+  const activeCount = mainlines.filter(m => m.status === 'active').length;
+  if (activeCount >= 5) {
+    showOverloadDialog();
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const newLine = {
+    id:              generateMainlineId(),
+    title:           title,
+    description:     $mlDesc.value.trim(),
+    status:          'active',
+    subGoals:        [],
+    relatedDiaryIds: [],
+    lastActiveAt:    now,
+    createdAt:       now,
+    updatedAt:       now,
+  };
+
+  mainlines.push(newLine);
+  saveMainlines();
+  closeCreateMainline();
+  renderMainlines();
+  showToast('主线方向已创建');
+}
+
+/** 归档主线方向 */
+function archiveMainline(id) {
+  const m = mainlines.find(ml => ml.id === id);
+  if (!m) return;
+  // 复用现有 confirm 组件
+  resetConfirmDialog();
+  document.querySelector('#confirmOverlay p').innerHTML = `归档「${escHtml(m.title)}」？<br><span style="font-size:12px;color:#9ca3af">归档后可恢复，不会删除数据</span>`;
+  document.getElementById('confirmOk').onclick = function() {
+    m.status    = 'archived';
+    m.updatedAt = new Date().toISOString();
+    saveMainlines();
+    renderMainlines();
+    $overlay.classList.remove('show');
+    showToast('已归档');
+    // 恢复删除确认的原始事件
+    document.getElementById('confirmOk').onclick = confirmDelete;
+  };
+  $overlay.classList.add('show');
+}
+
+/* ── 详情页 ── */
+
+/** 打开方向详情页 */
+function openMainlineDetail(id) {
+  currentMainlineId = id;
+  expandedSubGoals.clear();
+  $mlListMode.classList.add('hidden');
+  $mlDetailMode.classList.remove('hidden');
+  renderMainlineDetail();
+}
+
+/** 返回主线列表 */
+function backToMainlineList() {
+  currentMainlineId = null;
+  expandedSubGoals.clear();
+  $mlDetailMode.classList.add('hidden');
+  $mlListMode.classList.remove('hidden');
+  renderMainlines();
+}
+
+/** 渲染详情页：标题 + 描述 + 子目标列表 */
+function renderMainlineDetail() {
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  if (!m) { backToMainlineList(); return; }
+
+  $detailTitle.innerHTML = `${escHtml(m.title)} <button class="btn-back" style="font-size:12px;margin-left:8px" onclick="openEditMainline()">编辑</button>`;
+  $detailDesc.textContent  = m.description || '';
+  renderSubgoals(m);
+  renderRelatedDiaries(m);
+}
+
+/** 打开编辑方向模态框 */
+function openEditMainline() {
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  if (!m) return;
+  $editMlTitle.value = m.title;
+  $editMlDesc.value  = m.description || '';
+  $editMlOverlay.classList.add('show');
+  $editMlTitle.focus();
+}
+
+function closeEditMainline() {
+  $editMlOverlay.classList.remove('show');
+}
+
+function saveEditMainline() {
+  const title = $editMlTitle.value.trim();
+  if (!title) { showToast('请输入方向名称'); return; }
+
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  if (!m) return;
+  m.title       = title;
+  m.description = $editMlDesc.value.trim();
+  m.updatedAt   = new Date().toISOString();
+  saveMainlines();
+  closeEditMainline();
+  renderMainlineDetail();
+  showToast('方向已更新');
+}
+
+/** 渲染子目标列表 */
+function renderSubgoals(mainline) {
+  const sgs = mainline.subGoals || [];
+
+  if (sgs.length === 0) {
+    $subgoalList.innerHTML = `<div class="subgoal-empty-hint">
+      <svg class="w-8 h-8 mb-2 mx-auto text-ink-300" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+      </svg>
+      <p>还没有阶段目标</p>
+      <p style="font-size:12px;margin-top:3px">点击下方按钮添加，将大方向拆解为可追踪的阶段锚点</p>
+    </div>`;
+    return;
+  }
+
+  $subgoalList.innerHTML = sgs.map(sg => {
+    const isExpanded = expandedSubGoals.has(sg.id);
+    const progress   = sg.progressEntries || [];
+
+    return `
+    <div class="subgoal-item ${isExpanded ? 'expanded' : ''}" data-sgid="${sg.id}">
+      <div class="subgoal-header" onclick="toggleSubGoal('${sg.id}')">
+        <span class="sg-title">
+          <span class="sg-arrow">▶</span>
+          <span>${escHtml(sg.title)}</span>
+        </span>
+        <button class="btn-add-progress" onclick="event.stopPropagation(); openAddProgress('${sg.id}')" title="添加进展">+</button>
+        <button class="btn-delete-sg" onclick="event.stopPropagation(); deleteSubGoal('${sg.id}')" title="删除">✕</button>
+      </div>
+      <div class="subgoal-body">
+        ${progress.length === 0
+          ? `<div class="progress-empty">暂无进展记录</div>`
+          : progress.slice().sort((a,b) => (b.date||'').localeCompare(a.date||'')).map(p => `
+            <div class="progress-entry">
+              <span class="pe-date">${formatDateLabel(p.date) || ''}</span>
+              <span class="pe-summary">${escHtml(p.content || p.summary || '')}</span>
+              <span class="pe-source">${escHtml(p.source || '手动')}</span>
+              <button class="btn-del-progress" onclick="event.stopPropagation(); deleteProgress('${sg.id}','${p.id}')" title="删除">✕</button>
+            </div>
+          `).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSubGoal(sgId) {
+  if (expandedSubGoals.has(sgId)) {
+    expandedSubGoals.delete(sgId);
+  } else {
+    expandedSubGoals.add(sgId);
+  }
+  // 局部刷新子目标列表
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  if (m) renderSubgoals(m);
+}
+
+/* ── 子目标 CRUD ── */
+
+function openAddSubGoal() {
+  $sgTitle.value = '';
+  $sgModalOverlay.classList.add('show');
+  $sgTitle.focus();
+}
+
+function closeAddSubGoal() {
+  $sgModalOverlay.classList.remove('show');
+}
+
+function createSubGoal() {
+  const title = $sgTitle.value.trim();
+  if (!title) {
+    showToast('请输入阶段目标名称');
+    return;
+  }
+
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  if (!m) return;
+
+  const now = new Date().toISOString();
+  if (!m.subGoals) m.subGoals = [];
+  m.subGoals.push({
+    id:              generateMainlineId(),
+    title:           title,
+    status:          'active',
+    progressEntries: [],
+    createdAt:       now,
+    updatedAt:       now,
+  });
+  m.updatedAt = now;
+  saveMainlines();
+  closeAddSubGoal();
+  renderSubgoals(m);
+  showToast('阶段目标已添加');
+}
+
+function deleteSubGoal(sgId) {
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  if (!m) return;
+  const sg = (m.subGoals || []).find(s => s.id === sgId);
+  if (!sg) return;
+
+  resetConfirmDialog();
+  document.querySelector('#confirmOverlay p').innerHTML = `删除「${escHtml(sg.title)}」？<br><span style="font-size:12px;color:#ef4444">将同时删除该阶段目标及其下所有进展记录，不可恢复，确认删除？</span>`;
+  document.getElementById('confirmOk').onclick = function() {
+    m.subGoals = (m.subGoals || []).filter(s => s.id !== sgId);
+    m.updatedAt = new Date().toISOString();
+    expandedSubGoals.delete(sgId);
+    saveMainlines();
+    renderSubgoals(m);
+    $overlay.classList.remove('show');
+    showToast('阶段目标已删除');
+    document.getElementById('confirmOk').onclick = confirmDelete;
+  };
+  $overlay.classList.add('show');
+}
+
+/* ── 进展记录 CRUD ── */
+
+function openAddProgress(sgId) {
+  pendingProgressSgId = sgId;
+  $prContent.value = '';
+  $prModalOverlay.classList.add('show');
+  $prContent.focus();
+}
+
+function closeAddProgress() {
+  pendingProgressSgId = null;
+  $prModalOverlay.classList.remove('show');
+}
+
+function createProgress() {
+  const content = $prContent.value.trim();
+  if (!content) { showToast('请输入进展内容'); return; }
+
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  if (!m) return;
+  const sg = (m.subGoals || []).find(s => s.id === pendingProgressSgId);
+  if (!sg) return;
+
+  const now = new Date().toISOString();
+  if (!sg.progressEntries) sg.progressEntries = [];
+  sg.progressEntries.unshift({
+    id:      generateMainlineId(),
+    content: content,
+    diaryId: null,
+    date:    now,
+    source:  'manual',
+  });
+  m.updatedAt = now;
+  expandedSubGoals.add(sg.id); // 自动展开
+  saveMainlines();
+  closeAddProgress();
+  renderSubgoals(m);
+  showToast('进展已添加');
+}
+
+function deleteProgress(sgId, prId) {
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  if (!m) return;
+  const sg = (m.subGoals || []).find(s => s.id === sgId);
+  if (!sg) return;
+  const pr = (sg.progressEntries || []).find(p => p.id === prId);
+  if (!pr) return;
+
+  resetConfirmDialog();
+  document.querySelector('#confirmOverlay p').innerHTML = `删除这条进展记录？<br><span style="font-size:12px;color:#9ca3af">内容：${escHtml((pr.content||'').slice(0,40))}…</span>`;
+  document.getElementById('confirmOk').onclick = function() {
+    sg.progressEntries = (sg.progressEntries || []).filter(p => p.id !== prId);
+    m.updatedAt = new Date().toISOString();
+
+    // 一致性清理：若该 diaryId 不再被任何子目标引用，从 relatedDiaryIds 移除
+    if (pr.diaryId) {
+      const stillUsed = (m.subGoals || []).some(s =>
+        (s.progressEntries || []).some(p => p.id !== prId && p.diaryId === pr.diaryId)
+      );
+      if (!stillUsed) {
+        m.relatedDiaryIds = (m.relatedDiaryIds || []).filter(id => id !== pr.diaryId);
+      }
+    }
+
+    saveMainlines();
+    renderMainlineDetail();
+    $overlay.classList.remove('show');
+    showToast('进展已删除');
+    document.getElementById('confirmOk').onclick = confirmDelete;
+  };
+  $overlay.classList.add('show');
+}
+
+/* ── AI 关联建议确认条 ── */
+
+const $suggestionBar  = document.getElementById('suggestionBar');
+const $suggestionText = document.getElementById('suggestionText');
+
+/** 渲染关联建议确认条 */
+function renderSuggestionBar() {
+  // 获取当前编辑日记的 summary.suggestion
+  let sug = null;
+  if (currentId) {
+    const entry = entryMap.get( currentId);
+    if (entry && entry.summary && entry.summary.suggestion && entry.summary.suggestion.confirmed === false) {
+      sug = entry.summary.suggestion;
+    }
+  }
+  // 备用：从待处理暂存区读取（保存前）
+  if (!sug && window._pendingSuggestion && window._pendingSuggestion.confirmed === false) {
+    sug = window._pendingSuggestion;
+  }
+
+  if (!sug) {
+    $suggestionBar.classList.add('hidden');
+    return;
+  }
+
+  // 验证目标仍存在且活跃
+  const goal = mainlines.find(m => m.id === sug.goalId && m.status === 'active');
+  if (!goal) {
+    // 目标已归档/删除 → 标记为已处理
+    sug.confirmed = true;
+    if (currentId) {
+      const entry = entryMap.get( currentId);
+      if (entry && entry.summary) { entry.summary.suggestion = sug; saveToStorage(); }
+    }
+    $suggestionBar.classList.add('hidden');
+    return;
+  }
+
+  $suggestionText.textContent = `检测到与主线目标【${sug.goalTitle}】相关，建议同步进展：${sug.summary}`;
+  $suggestionBar.classList.remove('hidden');
+}
+
+/** 确认同步 → 弹出子目标选择器 */
+function confirmSuggestion(entryId = currentId) {
+  if (!entryId) { showToast('请先保存日记再确认关联'); return; }
+  if (entryId === currentId) {
+    const entry = entryMap.get(entryId);
+    if (entry && (entry.title !== $title.value.trim() || entry.content !== $content.value)) {
+      showToast('请先保存日记正文再确认关联');
+      return;
+    }
+  }
+  const sug = entryId === currentId
+    ? (window._pendingSuggestion || entryMap.get(entryId)?.summary?.suggestion)
+    : entryMap.get(entryId)?.summary?.suggestion;
+  if (!sug || sug.confirmed) return;
+
+  const goal = mainlines.find(m => m.id === sug.goalId);
+  if (!goal || goal.status !== 'active') {
+    showToast('该目标已不存在，无法同步');
+    sug.confirmed = true;
+    saveSuggestion(sug, entryId);
+    return;
+  }
+
+  const sgs = goal.subGoals || [];
+  if (sgs.length === 0) {
+    // 自动创建「通用进展」子目标
+    const now = new Date().toISOString();
+    if (!goal.subGoals) goal.subGoals = [];
+    goal.subGoals.push({
+      id: generateMainlineId(), title: '通用进展', status: 'active',
+      progressEntries: [], createdAt: now, updatedAt: now,
+    });
+    saveMainlines();
+  }
+  // 重新读取（确保子目标存在）
+  const refreshedGoal = mainlines.find(m => m.id === sug.goalId);
+  const refreshedSgs = refreshedGoal ? (refreshedGoal.subGoals || []) : [];
+
+  // 弹出自定义子目标选择器（复用确认弹窗）
+  if (refreshedSgs.length === 1) {
+    doConfirmSuggestion(sug, refreshedSgs[0].id, entryId);
+  } else {
+    showSubGoalPicker(sug, refreshedSgs, entryId);
+  }
+}
+
+function showSubGoalPicker(sug, sgs, entryId) {
+  resetConfirmDialog();
+  document.querySelector('#confirmOverlay p').innerHTML = `选择同步到的子目标：<br><span style="font-size:12px;color:#9ca3af">目标：${escHtml(sug.goalTitle)}</span>`;
+  const listHtml = sgs.map(sg => `
+    <button style="display:block;width:100%;padding:8px 12px;margin:4px 0;border:1px solid #e5e0d8;border-radius:6px;background:#fff;text-align:left;cursor:pointer;font-family:inherit;font-size:13px"
+            id="sgpick_${sg.id}" onclick="doConfirmSuggestion(window._sgPickerSug, '${sg.id}', window._sgPickerEntryId); document.getElementById('confirmOverlay').classList.remove('show'); resetConfirmDialog();">${escHtml(sg.title)}</button>
+  `).join('');
+  document.querySelector('#confirmOverlay p').innerHTML += `<div style="margin-top:8px">${listHtml}</div>`;
+  window._sgPickerSug = sug;
+  window._sgPickerEntryId = entryId;
+  document.getElementById('confirmOk').style.display = 'none';
+  $overlay.classList.add('show');
+}
+
+function doConfirmSuggestion(sug, sgId, entryId = currentId) {
+  const goal = mainlines.find(m => m.id === sug.goalId);
+  if (!goal) return;
+
+  const sg = (goal.subGoals || []).find(s => s.id === sgId);
+  if (!sg) return;
+
+  const now = new Date().toISOString();
+  if (!sg.progressEntries) sg.progressEntries = [];
+  sg.progressEntries.unshift({
+    id:      generateMainlineId(),
+    content: sug.summary,
+    diaryId: entryId || null,
+    date:    now,
+    source:  'ai_suggestion',
+  });
+
+  if (!goal.relatedDiaryIds) goal.relatedDiaryIds = [];
+  if (entryId && !goal.relatedDiaryIds.includes(entryId)) {
+    goal.relatedDiaryIds.push(entryId);
+  }
+  goal.updatedAt = now;
+
+  sug.confirmed = true;
+  saveSuggestion(sug, entryId);
+  saveMainlines();
+  renderSuggestionBar();
+  updateBadge();
+  showToast(`已同步到【${goal.title} - ${sg.title}】`);
+}
+
+function ignoreSuggestion() {
+  const sug = window._pendingSuggestion || (currentId ? (entryMap.get(currentId)?.summary?.suggestion) : null);
+  if (sug) { sug.confirmed = true; saveSuggestion(sug); }
+  renderSuggestionBar();
+  updateBadge();
+}
+
+function saveSuggestion(sug, entryId = currentId) {
+  if (!entryId) return;
+  const entry = entryMap.get(entryId);
+  if (!entry) return;
+  if (!entry.summary) entry.summary = { aiTitle: '', aiTags: [], aiReflection: '' };
+  entry.summary.suggestion = sug;
+  saveToStorage();
+}
+
+/* ── Badge + 批量建议 ── */
+
+const $mainlineBadge        = document.getElementById('mainlineBadge');
+const $batchBanner          = document.getElementById('batchSuggestionBanner');
+const $batchText            = document.getElementById('batchSuggestionText');
+const $batchList            = document.getElementById('batchSuggestionList');
+
+/** 计算未确认建议总数 */
+function computeBadgeCount() {
+  let count = 0;
+  for (const e of entries) {
+    if (e.summary && e.summary.suggestion && e.summary.suggestion.confirmed === false) {
+      count++;
+    }
+  }
+  return count;
+}
+
+/** 更新导航 badge */
+function updateBadge() {
+  const count = computeBadgeCount();
+  if (count > 0) {
+    $mainlineBadge.textContent = count > 99 ? '99+' : String(count);
+    $mainlineBadge.classList.remove('hidden');
+  } else {
+    $mainlineBadge.classList.add('hidden');
+  }
+  // 如果在详情页，刷新批量建议
+  if (currentMainlineId) renderBatchSuggestions();
+}
+
+/** 渲染详情页批量建议提示条 */
+function renderBatchSuggestions() {
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  if (!m) { $batchBanner.classList.add('hidden'); $batchList.classList.add('hidden'); return; }
+
+  const suggestions = [];
+  for (const e of entries) {
+    if (e.summary && e.summary.suggestion && e.summary.suggestion.confirmed === false && e.summary.suggestion.goalId === currentMainlineId) {
+      suggestions.push({ entry: e, sug: e.summary.suggestion });
+    }
+  }
+
+  if (suggestions.length === 0) {
+    $batchBanner.classList.add('hidden');
+    $batchList.classList.add('hidden');
+    return;
+  }
+
+  $batchText.textContent = `该方向有 ${suggestions.length} 条未确认的关联建议`;
+  $batchBanner.classList.remove('hidden');
+
+  $batchList.innerHTML = suggestions.map(({ entry, sug }) => `
+    <div class="batch-item">
+      <div class="bi-info">
+        <strong>${escHtml(entry.title || '无标题')}</strong>
+        <span style="color:#6b7280;margin-left:6px">${escHtml(sug.summary)}</span>
+        <span style="font-size:11px;color:#9ca3af;margin-left:4px">${entry.date}</span>
+      </div>
+      <div class="bi-actions">
+        <button class="btn btn-ghost px-2 py-1" style="font-size:11px" onclick="ignoreBatchSuggestion('${entry.id}')">忽略</button>
+        <button class="btn btn-primary px-3 py-1" style="font-size:11px" onclick="confirmBatchSuggestion('${entry.id}')">确认同步</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+/** 切换批量建议列表展开/收起 */
+function toggleBatchList() {
+  $batchList.classList.toggle('hidden');
+}
+
+function confirmBatchSuggestion(entryId) {
+  const entry = entryMap.get( entryId);
+  if (!entry || !entry.summary || !entry.summary.suggestion) return;
+  const sug = entry.summary.suggestion;
+  confirmSuggestion(entryId); // 使用建议所属日记
+}
+
+function ignoreBatchSuggestion(entryId) {
+  const entry = entryMap.get( entryId);
+  if (!entry) return;
+  if (entry.summary && entry.summary.suggestion) {
+    entry.summary.suggestion.confirmed = true;
+    saveToStorage();
+  }
+  updateBadge();
+}
+
+/* ── 日记关联选择器（从编辑页关联） ── */
+
+function openLinkDiary() {
+  if (!currentId) { showToast('请先保存日记再关联'); return; }
+
+  linkSelectedDirId = null;
+  linkSelectedSgId  = null;
+  $btnLinkConfirm.disabled = true;
+  $linkStatus.textContent = '';
+  $linkStepHint.textContent = '请选择要关联的方向：';
+  $lsSubgoals.style.display = 'none';
+
+  const active = mainlines.filter(m => m.status === 'active');
+  $lsDirections.innerHTML = active.map(m => `
+    <div class="ls-item ${linkSelectedDirId === m.id ? 'selected' : ''}"
+         onclick="selectLinkDirection('${m.id}')">${escHtml(m.title)}</div>
+  `).join('') || '<div style="padding:12px;font-size:13px;color:#9ca3af">暂无活跃方向</div>';
+
+  $linkDiaryOverlay.classList.add('show');
+}
+
+function closeLinkDiary() {
+  $linkDiaryOverlay.classList.remove('show');
+}
+
+function selectLinkDirection(dirId) {
+  linkSelectedDirId = dirId;
+  linkSelectedSgId  = null;
+  $btnLinkConfirm.disabled = false;
+  $linkStatus.textContent = '';
+  $linkStepHint.textContent = '选择子目标（可选）：';
+
+  const m = mainlines.find(ml => ml.id === dirId);
+  if (!m) return;
+  const sgs = m.subGoals || [];
+
+  // 更新方向列表选中态
+  document.querySelectorAll('#lsDirections .ls-item').forEach(el => {
+    el.classList.toggle('selected', el.textContent.trim() === (m.title || ''));
+  });
+
+  $lsSubgoals.style.display = '';
+  $lsSubgoals.innerHTML = sgs.map(sg => `
+    <div class="ls-item ${linkSelectedSgId === sg.id ? 'selected' : ''}"
+         onclick="selectLinkSubGoal('${sg.id}')">${escHtml(sg.title)}</div>
+  `).join('') + `
+    <div class="ls-item ls-skip ${linkSelectedSgId === null ? 'selected' : ''}"
+         onclick="selectLinkSubGoal(null)">仅关联方向，不记录进展</div>`;
+
+  $btnLinkConfirm.disabled = false;
+}
+
+function selectLinkSubGoal(sgId) {
+  linkSelectedSgId = sgId;
+  document.querySelectorAll('#lsSubgoals .ls-item').forEach(el => {
+    el.classList.toggle('selected', el.getAttribute('onclick')?.includes(sgId === null ? 'null' : `'${sgId}'`));
+  });
+}
+
+function confirmLinkDiary() {
+  if (!linkSelectedDirId || !currentId) return;
+  const m = mainlines.find(ml => ml.id === linkSelectedDirId);
+  if (!m) return;
+
+  const now = new Date().toISOString();
+  const diary = entryMap.get( currentId);
+  const summary = (diary?.title || diary?.content || '').slice(0, 30);
+
+  // 去重 relatedDiaryIds
+  if (!m.relatedDiaryIds) m.relatedDiaryIds = [];
+  if (!m.relatedDiaryIds.includes(currentId)) {
+    m.relatedDiaryIds.push(currentId);
+  }
+
+  let msg = `已关联到【${m.title}`;
+
+  if (linkSelectedSgId) {
+    const sg = (m.subGoals || []).find(s => s.id === linkSelectedSgId);
+    if (sg) {
+      if (!sg.progressEntries) sg.progressEntries = [];
+      sg.progressEntries.unshift({
+        id:      generateMainlineId(),
+        content: summary,
+        diaryId: currentId,
+        date:    now,
+        source:  'manual',
+      });
+      msg += ` - ${sg.title}`;
+    }
+  }
+
+  m.updatedAt = now;
+  saveMainlines();
+  closeLinkDiary();
+  showToast(msg + '】');
+}
+
+/* ── 关联日记渲染 + 取消关联 ── */
+
+function renderRelatedDiaries(mainline) {
+  const ids = mainline.relatedDiaryIds || [];
+
+  // 收集所有被进展记录引用的 diaryId
+  const progressDiaryIds = new Set();
+  (mainline.subGoals || []).forEach(sg => {
+    (sg.progressEntries || []).forEach(p => {
+      if (p.diaryId) progressDiaryIds.add(p.diaryId);
+    });
+  });
+
+  if (ids.length === 0) {
+    $relatedDiaryList.innerHTML = '<div class="subgoal-empty-hint" style="padding:16px 0">暂无关联日记，可在日记编辑页将日记关联到此方向。</div>';
+    return;
+  }
+
+  $relatedDiaryList.innerHTML = ids.map(did => {
+    const diary = entryMap.get( did);
+    const label  = diary ? `${formatDateStrCN(diary.date)}  ${escHtml((diary.title || diary.content || '').slice(0, 50))}` : `(已删除的日记: ${did.slice(0,8)}…)`;
+    const hasProgress = progressDiaryIds.has(did);
+    return `
+    <div class="related-diary-item">
+      <span class="rd-date">${diary ? formatDateStrCN(diary.date) : ''}</span>
+      <span class="rd-summary" onclick="${diary ? `switchView('editor');selectEntry('${did}')` : ''}">${label}</span>
+      ${hasProgress ? `<span class="rd-badge">已有进展记录</span>` : ''}
+      <button class="btn-unlink" onclick="unlinkDiary('${did}')">取消关联</button>
+    </div>`;
+  }).join('');
+}
+
+function formatDateStrCN(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return dateStr || '';
+  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+}
+
+function unlinkDiary(diaryId) {
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  if (!m) return;
+
+  resetConfirmDialog();
+  document.querySelector('#confirmOverlay p').innerHTML = '将取消该日记与当前方向的关联，<br><span style="font-size:12px;color:#9ca3af">但不会删除已记录的进展。确认取消？</span>';
+  document.getElementById('confirmOk').onclick = function() {
+    m.relatedDiaryIds = (m.relatedDiaryIds || []).filter(id => id !== diaryId);
+    m.updatedAt = new Date().toISOString();
+    saveMainlines();
+    renderMainlineDetail();
+    $overlay.classList.remove('show');
+    showToast('已取消关联');
+    document.getElementById('confirmOk').onclick = confirmDelete;
+  };
+  $overlay.classList.add('show');
+}
+
+/* ── 搜索并添加关联日记 ── */
+
+function openSearchDiary() {
+  searchCheckedIds.clear();
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  if (m) (m.relatedDiaryIds || []).forEach(id => searchCheckedIds.add(id));
+
+  $searchDiaryInput.value = '';
+  renderSearchDiaryList('');
+  $searchDiaryOverlay.classList.add('show');
+  setTimeout(() => $searchDiaryInput.focus(), 100);
+}
+
+function closeSearchDiary() {
+  $searchDiaryOverlay.classList.remove('show');
+}
+
+function renderSearchDiaryList(query) {
+  const q = (query || '').toLowerCase();
+  const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date));
+
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  const existing = m ? (m.relatedDiaryIds || []) : [];
+
+  const filtered = q ? sorted.filter(e =>
+    (e.title || '').toLowerCase().includes(q) ||
+    (e.content || '').toLowerCase().includes(q)
+  ) : sorted;
+
+  $searchDiaryList.innerHTML = filtered.map(e => {
+    const isExisting = existing.includes(e.id);
+    const isChecked  = searchCheckedIds.has(e.id);
+    return `
+    <div class="search-link-item">
+      <input type="checkbox" class="sl-checkbox" ${isChecked ? 'checked' : ''} ${isExisting ? 'disabled' : ''}
+             onchange="${isExisting ? '' : `toggleSearchCheck('${e.id}', this.checked)`}">
+      <span style="flex-shrink:0;font-size:12px;color:#9ca3af;width:75px">${e.date}</span>
+      <span style="flex:1;min-width:0;font-size:13px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(e.title || e.content || '').slice(0, 50)}</span>
+    </div>`;
+  }).join('') || '<div style="padding:16px;text-align:center;font-size:13px;color:#9ca3af">没有匹配的日记</div>';
+}
+
+function toggleSearchCheck(diaryId, checked) {
+  if (checked) { searchCheckedIds.add(diaryId); }
+  else         { searchCheckedIds.delete(diaryId); }
+}
+
+function confirmSearchDiary() {
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  if (!m) return;
+
+  const existing = new Set(m.relatedDiaryIds || []);
+  let added = 0;
+  searchCheckedIds.forEach(id => {
+    if (!existing.has(id)) {
+      if (!m.relatedDiaryIds) m.relatedDiaryIds = [];
+      m.relatedDiaryIds.push(id);
+      added++;
+    }
+  });
+
+  if (added > 0) {
+    m.updatedAt = new Date().toISOString();
+    saveMainlines();
+  }
+  closeSearchDiary();
+  renderMainlineDetail();
+  if (added > 0) showToast(`已关联 ${added} 篇日记`);
+}
+
+/* ── 目标复盘 ── */
+
+async function generateGoalReview() {
+  if (isReviewGenerating || isAiLoading) return;
+
+  const m = mainlines.find(ml => ml.id === currentMainlineId);
+  if (!m) return;
+
+  const settings = loadSettings();
+  if (!settings.apiKey) {
+    showToast('请先在设置中配置 API Key');
+    openSettings();
+    return;
+  }
+
+  // 收集关联日记
+  const diaryIds = m.relatedDiaryIds || [];
+  const diaries = diaryIds.map(did => entryMap.get(did)).filter(Boolean);
+  if (diaries.length === 0) {
+    showToast('该方向还没有关联日记，请先在日记中记录相关进展');
+    return;
+  }
+  if (diaries.length < diaryIds.length) {
+    reviewRawMarkdown = '> ⚠️ 注意：部分关联日记已不存在，已自动跳过。\n\n';
+  } else {
+    reviewRawMarkdown = '';
+  }
+
+  // ── 加载态 ──
+  isReviewGenerating = true;
+  $btnGoalReview.disabled = true;
+  $btnGoalReview.textContent = '⏳ 生成中…';
+  $reviewCard.classList.remove('hidden');
+  $reviewCopyBar.classList.add('hidden');
+  $reviewSpinner.classList.remove('hidden');
+  $reviewMd.innerHTML = '';
+
+  try {
+    // 逐篇压缩（无 summary 自动提炼）
+    const MAX_CHARS = 6000;
+    const compressedList = [];
+    let totalLen = 0;
+
+    for (let i = 0; i < diaries.length; i++) {
+      const d = diaries[i];
+      const needsAnalysis = !d.summary || !d.summary.coreIdeas;
+      if (needsAnalysis) {
+        $reviewMd.innerHTML = `<p style="color:#6b7280;text-align:center;padding:16px">⏳ 正在补充提炼第 ${i+1}/${diaries.length} 篇…</p>`;
+      }
+      try {
+        const comp = await compressDiaryForFramework(d);
+        totalLen += comp.length;
+        compressedList.push({ date: d.date, text: comp });
+      } catch (e) {
+        // 单篇失败，跳过
+      }
+    }
+
+    if (compressedList.length === 0) {
+      throw new Error('EMPTY_CONTENT');
+    }
+
+    // 按日期升序排列
+    compressedList.sort((a, b) => a.date.localeCompare(b.date));
+
+    // 截断策略：从后向前取
+    let truncated = [];
+    let charCount = 0;
+    for (let i = compressedList.length - 1; i >= 0; i--) {
+      if (charCount + compressedList[i].text.length > MAX_CHARS) break;
+      truncated.unshift(compressedList[i]);
+      charCount += compressedList[i].text.length;
+    }
+    if (truncated.length < compressedList.length) {
+      reviewRawMarkdown = `> ⚠️ 因篇幅限制，仅包含最近 ${truncated.length} 篇日记。\n\n`;
+    }
+
+    const diaryText = truncated.map((c, i) => `${i + 1}. ${c.text}`).join('\n\n');
+    const userContent = `以下是与主线目标【${m.title}】相关的日记记录，请基于这些内容生成一份目标复盘报告。\n\n${diaryText}`;
+
+    $reviewMd.innerHTML = '<p style="color:#6b7280;text-align:center;padding:16px">🧠 正在生成复盘报告…</p>';
+
+    // 流式生成
+    const fullText = await callAIStream(
+      userContent,
+      GOAL_REVIEW_SYSTEM_PROMPT,
+      function(delta, full) {
+        $reviewMd.innerHTML = renderMarkdown(reviewRawMarkdown + full);
+        $reviewMd.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    );
+
+    reviewRawMarkdown += fullText;
+    $reviewMd.innerHTML = renderMarkdown(reviewRawMarkdown);
+    $reviewCopyBar.classList.remove('hidden');
+    // 更新复盘引导区域
+    updateReviewGuide();
+
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      $reviewMd.innerHTML = renderMarkdown(reviewRawMarkdown || '') + '<p style="color:#9ca3af">[生成已取消]</p>';
+    } else if (err.message === 'EMPTY_CONTENT') {
+      $reviewMd.innerHTML = '<p style="color:#9ca3af;text-align:center;padding:16px">没有可用的日记内容用于生成复盘</p>';
+      $reviewCard.classList.add('hidden');
+    } else if (err.message === 'NO_API_KEY') {
+      showToast('请先在设置中配置 API Key');
+      openSettings();
+      $reviewCard.classList.add('hidden');
+    } else {
+      $reviewMd.innerHTML = renderMarkdown(reviewRawMarkdown || '') + `<p style="color:#ef4444">生成失败：${escHtml(err.message)}</p>`;
+    }
+  } finally {
+    isReviewGenerating = false;
+    $btnGoalReview.disabled = false;
+    $btnGoalReview.textContent = '✨ 生成目标复盘';
+    $reviewSpinner.classList.add('hidden');
+  }
+}
+
+/** 刷新复盘引导/上次结果显示 */
+function updateReviewGuide() {
+  const guide = document.getElementById('reviewGuide');
+  const prev  = document.getElementById('prevReviewArea');
+  if (reviewRawMarkdown) {
+    guide.classList.add('hidden');
+    prev.classList.remove('hidden');
+    document.getElementById('prevReviewContent').innerHTML = renderMarkdown(reviewRawMarkdown);
+  } else {
+    guide.classList.remove('hidden');
+    prev.classList.add('hidden');
+  }
+}
+
+/** 全局 ESC 关闭模态框 */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    if (!$overlay.classList.contains('hidden') && $overlay.classList.contains('show')) {
+      cancelDelete();
+    } else if ($settingsOverlay.classList.contains('show')) {
+      closeSettings();
+    } else if ($mlModalOverlay.classList.contains('show')) {
+      closeCreateMainline();
+    } else if ($sgModalOverlay.classList.contains('show')) {
+      closeAddSubGoal();
+    } else if ($prModalOverlay.classList.contains('show')) {
+      closeAddProgress();
+    } else if ($linkDiaryOverlay.classList.contains('show')) {
+      closeLinkDiary();
+    } else if ($searchDiaryOverlay.classList.contains('show')) {
+      closeSearchDiary();
+    } else if ($editMlOverlay.classList.contains('show')) {
+      closeEditMainline();
+    }
+  }
+});
+
+async function copyReviewMarkdown() {
+  if (!reviewRawMarkdown) return;
+  try {
+    await navigator.clipboard.writeText(reviewRawMarkdown);
+    showToast('已复制');
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = reviewRawMarkdown;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('已复制');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   移动端抽屉
+   ═══════════════════════════════════════════════════════════════ */
+
+const $aside         = document.querySelector('aside');
+const $sidebarOverlay = document.getElementById('sidebarOverlay');
+const $btnMenu       = document.getElementById('btnMenu');
+
+/** 在小屏设备显示菜单按钮，大屏隐藏 */
+function updateMenuButton() {
+  if (window.innerWidth < 768) {
+    $btnMenu.style.display = '';
+  } else {
+    $btnMenu.style.display = 'none';
+    closeSidebar();
+  }
+}
+
+function openSidebar() {
+  $aside.classList.add('open');
+  $sidebarOverlay.classList.add('show');
+}
+
+function closeSidebar() {
+  $aside.classList.remove('open');
+  $sidebarOverlay.classList.remove('show');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Toast
+   ═══════════════════════════════════════════════════════════════ */
+
+let toastTimer;
+function showToast(msg) {
+  clearTimeout(toastTimer);
+  $toast.textContent = msg;
+  $toast.classList.add('show');
+  toastTimer = setTimeout(() => $toast.classList.remove('show'), 2500);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   事件绑定 & 初始化
+   ═══════════════════════════════════════════════════════════════ */
+
+document.getElementById('btnNew').addEventListener('click', newEntry);
+
+document.getElementById('btnSave').addEventListener('click', saveEntry);
+
+// Ctrl+S 保存
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    saveEntry();
+  }
+});
+
+// 日期变更时更新星期显示 + 触发自动草稿
+$date.addEventListener('change', function() {
+  updateWeekday(this.value);
+  scheduleAutoDraft();
+});
+
+// ── 自动草稿：输入事件 ──
+[$title, $cat, $content].forEach(function(el) {
+  el.addEventListener('input', scheduleAutoDraft);
+});
+
+// ── 失焦立即保存草稿 ──
+[$title, $cat, $content, $date].forEach(function(el) {
+  el.addEventListener('blur', function() {
+    clearTimeout(draftTimer);
+    saveDraft();
+  });
+});
+
+// ── 草稿恢复 / 丢弃 ──
+document.getElementById('draftRestore').addEventListener('click', restoreDraft);
+document.getElementById('draftDiscard').addEventListener('click', function() {
+  clearDraft();
+  showToast('草稿已丢弃');
+});
+
+// 确认对话框按钮
+resetConfirmDialog();
+$overlay.addEventListener('click', function(e) {
+  if (e.target === $overlay) cancelDelete();
+});
+
+// 草稿按钮（当前与保存行为一致）
+document.getElementById('btnDraft').addEventListener('click', function() {
+  saveDraft();
+  showToast('草稿已保存');
+});
+
+// ── 设置面板事件 ──
+document.getElementById('btnSettings').addEventListener('click', openSettings);
+document.getElementById('btnSettingsSave').addEventListener('click', applySettings);
+document.getElementById('btnAddCategory').addEventListener('click', addCategory);
+document.getElementById('newCategoryInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); addCategory(); }
+});
+document.getElementById('btnSettingsCancel').addEventListener('click', closeSettings);
+$settingsOverlay.addEventListener('click', function(e) {
+  if (e.target === $settingsOverlay) closeSettings();
+});
+$settingsVendor.addEventListener('change', onVendorChange);
+
+// ── AI 分析事件 ──
+$btnAi.addEventListener('click', runAiAnalysis);
+$btnSaveAi.addEventListener('click', saveAiToDiary);
+document.getElementById('btnEditAi').addEventListener('click', openAiEditor);
+document.getElementById('btnApplyAiEdit').addEventListener('click', applyAiEditor);
+document.getElementById('btnCancelAiEdit').addEventListener('click', closeAiEditor);
+document.getElementById('btnConfirmSuggestion').addEventListener('click', () => confirmSuggestion());
+document.getElementById('btnIgnoreSuggestion').addEventListener('click', ignoreSuggestion);
+document.getElementById('btnToggleBatchList').addEventListener('click', toggleBatchList);
+
+// ── 目标复盘事件 ──
+$btnGoalReview.addEventListener('click', generateGoalReview);
+document.getElementById('btnCopyReview').addEventListener('click', copyReviewMarkdown);
+
+// ── 思考框架事件 ──
+document.getElementById('btnFramework').addEventListener('click', switchToFramework);
+document.getElementById('breadcrumbHome').addEventListener('click', switchToEditor);
+document.getElementById('btnGenerate').addEventListener('click', generateFramework);
+document.getElementById('btnCopyMd').addEventListener('click', copyMarkdown);
+document.getElementById('btnDownloadMd').addEventListener('click', downloadMarkdown);
+
+// 时间范围切换
+document.querySelectorAll('#timeRangeGroup .time-range-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#timeRangeGroup .time-range-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    frameworkTimeRange = this.dataset.range;
+    updateFrameworkDates();
+  });
+});
+
+// 自定义日期变更
+$fwDateFrom.addEventListener('change', function() { frameworkTimeRange = 'custom'; });
+$fwDateTo.addEventListener('change', function() { frameworkTimeRange = 'custom'; });
+
+// ── 思考主线事件 ──
+document.getElementById('btnMainline').addEventListener('click', switchToMainline);
+document.getElementById('btnNewMainline').addEventListener('click', openCreateMainline);
+document.getElementById('btnMlSubmit').addEventListener('click', createMainline);
+document.getElementById('btnMlCancel').addEventListener('click', closeCreateMainline);
+$mlModalOverlay.addEventListener('click', function(e) {
+  if (e.target === $mlModalOverlay) closeCreateMainline();
+});
+// 标题回车提交
+$mlTitle.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); createMainline(); }
+});
+
+// ── 主线详情事件 ──
+document.getElementById('btnBackToList').addEventListener('click', backToMainlineList);
+document.getElementById('btnAddSubGoal').addEventListener('click', openAddSubGoal);
+document.getElementById('btnSgSubmit').addEventListener('click', createSubGoal);
+document.getElementById('btnSgCancel').addEventListener('click', closeAddSubGoal);
+$sgModalOverlay.addEventListener('click', function(e) {
+  if (e.target === $sgModalOverlay) closeAddSubGoal();
+});
+$sgTitle.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); createSubGoal(); }
+});
+
+// ── 进展 + 日记关联事件 ──
+document.getElementById('btnPrSubmit').addEventListener('click', createProgress);
+document.getElementById('btnPrCancel').addEventListener('click', closeAddProgress);
+$prModalOverlay.addEventListener('click', function(e) {
+  if (e.target === $prModalOverlay) closeAddProgress();
+});
+$prContent.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); createProgress(); }
+});
+
+document.getElementById('btnLinkDiary').addEventListener('click', openLinkDiary);
+document.getElementById('btnLinkConfirm').addEventListener('click', confirmLinkDiary);
+$linkDiaryOverlay.addEventListener('click', function(e) {
+  if (e.target === $linkDiaryOverlay) closeLinkDiary();
+});
+
+document.getElementById('btnSearchDiary').addEventListener('click', openSearchDiary);
+document.getElementById('btnSearchDiaryConfirm').addEventListener('click', confirmSearchDiary);
+document.getElementById('btnSearchDiaryCancel').addEventListener('click', closeSearchDiary);
+$searchDiaryOverlay.addEventListener('click', function(e) {
+  if (e.target === $searchDiaryOverlay) closeSearchDiary();
+});
+$searchDiaryInput.addEventListener('input', function() {
+  renderSearchDiaryList(this.value);
+});
+
+// ── 编辑方向事件 ──
+document.getElementById('btnEditMlSave').addEventListener('click', saveEditMainline);
+document.getElementById('btnEditMlCancel').addEventListener('click', closeEditMainline);
+$editMlOverlay.addEventListener('click', function(e) {
+  if (e.target === $editMlOverlay) closeEditMainline();
+});
+$editMlTitle.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); saveEditMainline(); }
+});
+
+// ── 移动端抽屉 ──
+$btnMenu.addEventListener('click', openSidebar);
+$sidebarOverlay.addEventListener('click', closeSidebar);
+window.addEventListener('resize', updateMenuButton);
+
+// ── 数据导出导入 ──
+document.getElementById('btnExportData').addEventListener('click', exportData);
+document.getElementById('btnImportData').addEventListener('click', function() {
+  document.getElementById('importFileInput').click();
+});
+document.getElementById('importFileInput').addEventListener('change', function() {
+  if (this.files && this.files[0]) {
+    importData(this.files[0]);
+    this.value = ''; // 允许重复导入同一文件
+  }
+});
+
+// ── 筛选事件 ──
+$filterCat.addEventListener('change', function() {
+  filterCategory = this.value;
+  renderList();
+});
+
+$filterFrom.addEventListener('change', function() {
+  filterDateFrom = this.value;
+  renderList();
+});
+
+$filterTo.addEventListener('change', function() {
+  filterDateTo = this.value;
+  renderList();
+});
+
+/* ── 启动 ── */
+updateMenuButton(); // 移动端按钮显隐
+loadFromStorage();
+loadCategories();
+loadMainlines();
+updateBadge();      // 初始计算 badge
+renderList();
+
+// 先建立空白编辑区，再提示恢复；启动时不可清除草稿
+const savedDraft = loadDraft();
+newEntry({ preserveDraft: true });
+if (savedDraft) showDraftBanner(savedDraft);
+</script>
+
+</body>
+</html>
