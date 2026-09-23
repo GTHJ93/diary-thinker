@@ -610,7 +610,7 @@ diff --git a/index2.html b/index2.html
 -    saveToStorage(); // 持久化提炼结果
 -
 -    const kw = (parsed.keywords || []).join('、');
--    return `【${dateLabel} ${catLabel}】${entry.title || '无标题'}\n核心观点：${entry.summary.coreIdeas}${kw ? '\n关键词：' + kw : ''}`;
+-    return `【${dateLabel} ${catLabel}】核心观点：${parsed.coreIdeas || '（未提取到）'}${kw ? '  关键词：' + kw : ''}`;
 -  } catch (e) {
 -    // 提炼失败 → 回退到原文压缩
 -    return compressRawContent(entry);
